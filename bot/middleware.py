@@ -38,6 +38,12 @@ class AntiSpamMiddleware(BaseMiddleware):
         if not isinstance(event, Message) or not event.from_user:
             return await handler(event, data)
 
+        text = (event.text or "").strip()
+        # Never silently drop bot commands like /start. Otherwise user clicks Menu repeatedly
+        # and gets "nothing happens", which feels like the bot is broken.
+        if text.startswith("/"):
+            return await handler(event, data)
+
         uid = event.from_user.id
         now = time.monotonic()
 
@@ -53,8 +59,8 @@ class AntiSpamMiddleware(BaseMiddleware):
         timestamps.append(now)
 
         # ── Deduplication ────────────────────────────────────────────
-        if event.text:
-            h = hashlib.md5(event.text.encode()).hexdigest()
+        if text:
+            h = hashlib.md5(text.encode()).hexdigest()
             bucket = self._dedup.setdefault(uid, {})
             # Prune old entries
             bucket = {
