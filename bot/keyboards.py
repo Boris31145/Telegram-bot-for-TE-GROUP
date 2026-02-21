@@ -62,7 +62,7 @@ URGENCY_OPTIONS = [
 INCOTERMS_OPTIONS = [
     ("EXW — самовывоз", "exw"),
     ("FOB — до порта", "fob"),
-    ("CIF — с страховкой", "cif"),
+    ("CIF — со страховкой", "cif"),
     ("DDP — до двери", "ddp"),
     ("❓ Не знаю / помочь", "unknown"),
 ]

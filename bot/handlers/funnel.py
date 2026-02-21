@@ -102,10 +102,9 @@ def _card(data: dict, step: int, question: str = "") -> str:
 async def _start_flow(message: Message, state: FSMContext) -> None:
     await state.clear()
     text = (
-        "<b>👋 Добро пожаловать в TE GROUP!</b>\n\n"
-        "Организуем доставку грузов из-за рубежа\n"
-        "в Россию и страны ЕАЭС.\n\n"
-        f"{_card({}, 0, '🌍 <b>Выберите страну отправления:</b>')}"
+        "<b>TE GROUP — расчёт доставки</b>\n"
+        "Сроки покажем сразу, стоимость уточнит менеджер.\n\n"
+        f"{_card({}, 0, '🌍 <b>Страна отправления:</b>')}"
     )
     await message.answer(text, reply_markup=country_kb())
     await state.set_state(OrderForm.country)
@@ -319,9 +318,14 @@ async def share_phone_contact(message: Message, state: FSMContext) -> None:
     phone = message.contact.phone_number  # type: ignore[union-attr]
     await state.update_data(phone=phone)
     data = await state.get_data()
-    text = _card(data, 7, "💬 <b>Добавьте комментарий</b> или нажмите «Пропустить»:")
-    await message.answer(text, reply_markup=ReplyKeyboardRemove())
-    await message.answer("⬇️", reply_markup=skip_comment_kb())
+    text = _card(
+        data,
+        7,
+        "💬 <b>Комментарий</b> (необязательно)\n"
+        "Напишите сообщением или нажмите «⏭ Пропустить».",
+    )
+    # Reply keyboard is one_time_keyboard and should collapse after sharing contact.
+    await message.answer(text, reply_markup=skip_comment_kb())
     await state.set_state(OrderForm.comment)
 
 
@@ -335,9 +339,13 @@ async def type_phone(message: Message, state: FSMContext) -> None:
         return
     await state.update_data(phone=phone)
     data = await state.get_data()
-    text = _card(data, 7, "💬 <b>Добавьте комментарий</b> или нажмите «Пропустить»:")
-    await message.answer(text, reply_markup=ReplyKeyboardRemove())
-    await message.answer("⬇️", reply_markup=skip_comment_kb())
+    text = _card(
+        data,
+        7,
+        "💬 <b>Комментарий</b> (необязательно)\n"
+        "Напишите сообщением или нажмите «⏭ Пропустить».",
+    )
+    await message.answer(text, reply_markup=skip_comment_kb())
     await state.set_state(OrderForm.comment)
 
 
