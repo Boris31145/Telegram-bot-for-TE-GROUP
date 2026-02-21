@@ -14,6 +14,8 @@ from aiogram import F, Router
 from aiogram.filters import Command, StateFilter
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message
 
+from bot.llm import answer_with_openai
+
 
 router = Router()
 
@@ -107,6 +109,11 @@ async def agent_answer(message: Message) -> None:
         if pattern.search(text):
             await message.answer(answer, reply_markup=_actions_kb())
             return
+
+    llm = await answer_with_openai(text)
+    if llm:
+        await message.answer(llm, reply_markup=_actions_kb())
+        return
 
     await message.answer(
         "Понял. Уточните, пожалуйста:\n"

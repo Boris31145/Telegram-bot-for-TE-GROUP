@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     RATE_LIMIT_SECONDS: int = 5
     DEDUP_SECONDS: int = 30
 
+    # LLM / Agent (optional)
+    LLM_ENABLED: bool = False
+    OPENAI_API_KEY: str | None = None
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    OPENAI_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_TIMEOUT_SECONDS: int = 20
+    OPENAI_MAX_TOKENS: int = 500
+    OPENAI_TEMPERATURE: float = 0.2
+
     @property
     def admin_ids(self) -> List[int]:
         """Parse comma-separated admin IDs into a list of ints."""

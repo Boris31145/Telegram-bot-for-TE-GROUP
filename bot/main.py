@@ -15,6 +15,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.types import BotCommand
 from pythonjsonlogger import jsonlogger
 
 from bot.config import settings
@@ -68,6 +69,15 @@ async def main() -> None:
     bot = Bot(
         token=settings.BOT_TOKEN,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
+
+    # Commands menu (Telegram shows a "Menu" button — no need to type /start)
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="📦 Рассчитать доставку"),
+            BotCommand(command="faq", description="❓ Вопросы: доставка/таможня"),
+            BotCommand(command="help", description="ℹ️ Помощь"),
+        ]
     )
     dp = Dispatcher(storage=MemoryStorage())
 
