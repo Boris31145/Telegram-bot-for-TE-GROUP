@@ -4,6 +4,7 @@ Admin commands:
 /lead <id>          — full lead card
 /status <id> STATUS — change status (NEW | IN_PROGRESS | WON | LOST)
 /export             — CSV dump of all leads
+/test               — test that bot can send to admin group
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import csv
 import io
 import logging
 
-from aiogram import Router
+from aiogram import Bot, Router
 from aiogram.filters import Command
 from aiogram.types import BufferedInputFile, Message
 
@@ -159,6 +160,36 @@ async def cmd_status(message: Message) -> None:
         await message.answer(f"{emoji} Лид #{lead_id} → <b>{status}</b>")
     else:
         await message.answer(f"❌ Лид #{lead_id} не найден.")
+
+
+# ── /test — diagnostic: send test message to admin group ─────────────
+
+@router.message(Command("test"))
+async def cmd_test_notify(message: Message, bot: Bot) -> None:
+    """
+    Anyone can run /test — the bot will try to send a test message
+    to every configured ADMIN_CHAT_ID and report success / error.
+    Useful to verify the bot is added to the group.
+    """
+    results: list[str] = []
+    for chat_id in settings.admin_ids:
+        try:
+            await bot.send_message(
+                chat_id,
+                f"🔔 <b>Тест уведомлений TE GROUP</b>\n"
+                f"Запрошено: {message.from_user.full_name if message.from_user else 'unknown'}\n"  # type: ignore[union-attr]
+                f"Если видишь это — всё работает ✅",
+            )
+            results.append(f"✅ <code>{chat_id}</code> — сообщение доставлено")
+        except Exception as exc:
+            results.append(f"❌ <code>{chat_id}</code> — ошибка: <code>{exc}</code>")
+
+    await message.answer(
+        "<b>Результат теста уведомлений:</b>\n\n"
+        + "\n".join(results)
+        + f"\n\n<i>ADMIN_CHAT_ID в настройках: <code>{settings.ADMIN_CHAT_ID}</code></i>\n"
+        "<i>Если ошибка — убедитесь, что бот добавлен в группу как участник.</i>"
+    )
 
 
 # ── /export ──────────────────────────────────────────────────────────
