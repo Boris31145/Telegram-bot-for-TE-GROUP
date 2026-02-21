@@ -53,10 +53,17 @@ router = Router()
 
 TOTAL_STEPS = 8
 
+_DIV = "─" * 18
+
 _WELCOME = (
-    "<b>TE GROUP</b>\n\n"
-    "Таможенное оформление в Кыргызстане\n"
-    "и доставка грузов из-за рубежа.\n\n"
+    "<b>✦  TE GROUP  ✦</b>\n"
+    "<i>Таможня · Логистика · ЕАЭС</i>\n\n"
+    "Оформляем грузы в <b>Кыргызстане</b> —\n"
+    "участнике Таможенного союза ЕАЭС.\n\n"
+    "Ввозим товары из любой точки мира\n"
+    "и доставляем в <b>Россию, Казахстан,\n"
+    "Беларусь</b> и другие страны союза.\n\n"
+    f"{_DIV}\n"
     "🌍 <b>Выберите страну отправления:</b>"
 )
 
@@ -64,46 +71,53 @@ _WELCOME = (
 # ── Helpers ───────────────────────────────────────────────────────────
 
 def _bar(step: int) -> str:
-    """Clean step counter, e.g. 'Шаг 3 из 8'."""
+    """Visual progress row: ●●●○○○○○  3 / 8"""
     if step <= 0:
         return ""
-    return f"<i>Шаг {step} из {TOTAL_STEPS}</i>"
+    filled = "●" * step
+    empty = "○" * (TOTAL_STEPS - step)
+    return f"<i>{filled}{empty}  {step} / {TOTAL_STEPS}</i>"
 
 
 def _card(data: dict, step: int, question: str = "") -> str:
-    """Accumulating summary card, edited in-place at every step."""
-    lines: list[str] = ["<b>TE GROUP</b>"]
+    """Premium accumulating summary card, edited in-place at every step."""
+    lines: list[str] = ["<b>✦  TE GROUP  ✦</b>"]
     bar = _bar(step)
     if bar:
         lines.append(bar)
-    lines.append("")
 
+    # Collected fields (only show if any exist)
+    fields: list[str] = []
     if data.get("country"):
         lbl = COUNTRY_LABELS.get(data["country"], data["country"])
-        lines.append(f"✅ Страна: <b>{lbl}</b>")
+        fields.append(f"  ✅  Страна — <b>{lbl}</b>")
     if data.get("city_from"):
-        lines.append(f"✅ Город: <b>{data['city_from']}</b>")
+        fields.append(f"  ✅  Город  — <b>{data['city_from']}</b>")
     if data.get("cargo_type"):
         lbl = CARGO_LABELS.get(data["cargo_type"], data["cargo_type"])
-        lines.append(f"✅ Груз: <b>{lbl}</b>")
+        fields.append(f"  ✅  Груз   — <b>{lbl}</b>")
     if data.get("weight_kg"):
         lbl = WEIGHT_LABELS.get(data["weight_kg"], f"{data['weight_kg']} кг")
-        lines.append(f"✅ Вес: <b>{lbl}</b>")
+        fields.append(f"  ✅  Вес    — <b>{lbl}</b>")
     if data.get("volume_m3"):
         lbl = VOLUME_LABELS.get(data["volume_m3"], f"{data['volume_m3']} м³")
-        lines.append(f"✅ Объём: <b>{lbl}</b>")
+        fields.append(f"  ✅  Объём  — <b>{lbl}</b>")
     if data.get("urgency"):
         lbl = URGENCY_LABELS.get(data["urgency"], data["urgency"])
-        lines.append(f"✅ Срочность: <b>{lbl}</b>")
+        fields.append(f"  ✅  Срочность — <b>{lbl}</b>")
         info = DELIVERY_INFO.get(data.get("country", ""), DEFAULT_DELIVERY).get(data["urgency"], "")
         if info:
-            lines.append(f"   💡 {info}")
+            fields.append(f"       💡 <i>{info}</i>")
     if data.get("incoterms"):
         lbl = INCOTERMS_LABELS.get(data["incoterms"], data["incoterms"])
-        lines.append(f"✅ Условия: <b>{lbl}</b>")
+        fields.append(f"  ✅  Условия — <b>{lbl}</b>")
+
+    if fields:
+        lines.append("")
+        lines.extend(fields)
 
     if question:
-        lines.append("")
+        lines.append(f"\n{_DIV}")
         lines.append(question)
 
     return "\n".join(lines)
@@ -447,6 +461,7 @@ async def handle_back(cb: CallbackQuery, state: FSMContext) -> None:
         await cb.message.edit_text(_WELCOME, reply_markup=country_kb())  # type: ignore[union-attr]
         await state.set_state(OrderForm.country)
 
+
     elif target == "city":
         country = data.get("country", "")
         await cb.message.edit_text(  # type: ignore[union-attr]
@@ -617,6 +632,9 @@ async def action_restart(cb: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(card_message_id=msg.message_id)
     await state.set_state(OrderForm.country)
     await cb.answer()
+
+
+
 
 
 # ── Admin inline buttons ──────────────────────────────────────────────
