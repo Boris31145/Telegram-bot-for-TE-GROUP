@@ -10,70 +10,110 @@ from aiogram.types import (
 )
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-# ── Data lists (label, callback_value) ──────────────────────────────
+# ── Services ────────────────────────────────────────────────────────
 
-COUNTRIES = [
-    ("🇨🇳 Китай", "china"),
-    ("🇹🇷 Турция", "turkey"),
-    ("🇦🇪 ОАЭ", "uae"),
-    ("🇮🇱 Израиль", "israel"),
-    ("🌍 Другая", "other"),
+SERVICE_OPTIONS = [
+    ("🛃  Таможенное оформление", "customs"),
+    ("🚚  Доставка груза", "delivery"),
 ]
 
+SERVICE_LABELS: dict[str, str] = {v: lbl for lbl, v in SERVICE_OPTIONS}
+
+# ── Customs ─────────────────────────────────────────────────────────
+
+CUSTOMS_DIRECTIONS = [
+    ("📥  Импорт в Кыргызстан", "import"),
+    ("🔄  Транзит КР → Россия / ЕАЭС", "transit"),
+    ("📤  Экспорт из КР", "export"),
+]
+
+CUSTOMS_DIRECTION_LABELS: dict[str, str] = {v: lbl for lbl, v in CUSTOMS_DIRECTIONS}
+
+INVOICE_PRESETS = [
+    ("До $1 000", "inv_1000"),
+    ("$1 000 – $5 000", "inv_5000"),
+    ("$5 000 – $20 000", "inv_20000"),
+    ("$20 000 – $50 000", "inv_50000"),
+    ("$50 000 – $100 000", "inv_100000"),
+    ("Свыше $100 000", "inv_100000p"),
+]
+
+INVOICE_LABELS: dict[str, str] = {v: lbl for lbl, v in INVOICE_PRESETS}
+
+INVOICE_TO_FLOAT: dict[str, float] = {
+    "inv_1000": 500,
+    "inv_5000": 3000,
+    "inv_20000": 12500,
+    "inv_50000": 35000,
+    "inv_100000": 75000,
+    "inv_100000p": 150000,
+}
+
+# ── Delivery ─────────────────────────────────────────────────────────
+
+COUNTRIES = [
+    ("🇨🇳  Китай", "china"),
+    ("🇹🇷  Турция", "turkey"),
+    ("🇦🇪  ОАЭ", "uae"),
+    ("🇮🇱  Израиль", "israel"),
+    ("🌍  Другая страна", "other"),
+]
+
+# city callback format: city:<country_key>:<city_name>
 CITIES_BY_COUNTRY: dict[str, list[str]] = {
-    "china": ["Гуанчжоу", "Шанхай", "Пекин", "Иу", "Шэньчжэнь", "Нинбо"],
+    "china":  ["Гуанчжоу", "Шанхай", "Пекин", "Иу", "Шэньчжэнь", "Нинбо"],
     "turkey": ["Стамбул", "Анкара", "Измир", "Мерсин", "Анталья"],
-    "uae": ["Дубай", "Абу-Даби", "Шарджа", "Аджман"],
+    "uae":    ["Дубай", "Абу-Даби", "Шарджа", "Аджман"],
     "israel": ["Тель-Авив", "Хайфа", "Ашдод", "Иерусалим"],
 }
 
 CARGO_TYPES = [
-    ("📦 Генеральный", "general"),
-    ("⚠️ Опасный", "dangerous"),
-    ("📐 Негабаритный", "oversized"),
-    ("🔄 Сборный", "consolidated"),
-    ("📋 Другой", "other"),
+    ("📦  Генеральный", "general"),
+    ("⚠️  Опасный", "dangerous"),
+    ("📐  Негабаритный", "oversized"),
+    ("🔄  Сборный", "consolidated"),
+    ("📋  Другой", "other"),
 ]
 
 WEIGHT_PRESETS = [
-    ("До 100 кг", "w_100"),
-    ("100–500 кг", "w_500"),
-    ("500 кг – 1 т", "w_1000"),
-    ("1–5 тонн", "w_5000"),
-    ("5–20 тонн", "w_20000"),
-    ("20+ тонн", "w_20000p"),
+    ("До 100 кг",      "w_100"),
+    ("100–500 кг",     "w_500"),
+    ("500 кг – 1 т",   "w_1000"),
+    ("1–5 тонн",       "w_5000"),
+    ("5–20 тонн",      "w_20000"),
+    ("20+ тонн",       "w_20000p"),
 ]
 
 VOLUME_PRESETS = [
-    ("До 1 м³", "v_1"),
-    ("1–5 м³", "v_5"),
-    ("5–10 м³", "v_10"),
-    ("10–33 м³ (20')", "v_33"),
-    ("33–67 м³ (40')", "v_67"),
-    ("67+ м³", "v_67p"),
+    ("До 1 м³",         "v_1"),
+    ("1–5 м³",          "v_5"),
+    ("5–10 м³",         "v_10"),
+    ("10–33 м³ (20')",  "v_33"),
+    ("33–67 м³ (40')",  "v_67"),
+    ("67+ м³",          "v_67p"),
 ]
 
 URGENCY_OPTIONS = [
-    ("🕐 Стандарт (15–25 дн)", "standard"),
-    ("⚡ Экспресс (7–12 дн)", "express"),
-    ("🚀 Срочная (3–6 дн)", "urgent"),
+    ("🕐  Стандарт (15–25 дней)", "standard"),
+    ("⚡  Экспресс (7–12 дней)", "express"),
+    ("🚀  Срочная (3–6 дней) ✈️", "urgent"),
 ]
 
 INCOTERMS_OPTIONS = [
-    ("EXW — самовывоз", "exw"),
-    ("FOB — до порта", "fob"),
-    ("CIF — с страховкой", "cif"),
-    ("DDP — до двери", "ddp"),
+    ("EXW — самовывоз",     "exw"),
+    ("FOB — до порта",      "fob"),
+    ("CIF — с страховкой",  "cif"),
+    ("DDP — до двери",      "ddp"),
     ("❓ Не знаю / помочь", "unknown"),
 ]
 
-# ── Quick label look-ups (callback_value → emoji label) ─────────────
+# ── Quick label look-ups ─────────────────────────────────────────────
 
-COUNTRY_LABELS: dict[str, str] = {v: lbl for lbl, v in COUNTRIES}
-CARGO_LABELS: dict[str, str] = {v: lbl for lbl, v in CARGO_TYPES}
-WEIGHT_LABELS: dict[str, str] = {v: lbl for lbl, v in WEIGHT_PRESETS}
-VOLUME_LABELS: dict[str, str] = {v: lbl for lbl, v in VOLUME_PRESETS}
-URGENCY_LABELS: dict[str, str] = {v: lbl for lbl, v in URGENCY_OPTIONS}
+COUNTRY_LABELS:   dict[str, str] = {v: lbl for lbl, v in COUNTRIES}
+CARGO_LABELS:     dict[str, str] = {v: lbl for lbl, v in CARGO_TYPES}
+WEIGHT_LABELS:    dict[str, str] = {v: lbl for lbl, v in WEIGHT_PRESETS}
+VOLUME_LABELS:    dict[str, str] = {v: lbl for lbl, v in VOLUME_PRESETS}
+URGENCY_LABELS:   dict[str, str] = {v: lbl for lbl, v in URGENCY_OPTIONS}
 INCOTERMS_LABELS: dict[str, str] = {v: lbl for lbl, v in INCOTERMS_OPTIONS}
 
 # ── Weight/Volume → approximate float for DB ────────────────────────
@@ -93,34 +133,42 @@ VOLUME_TO_FLOAT: dict[str, float] = {
 DELIVERY_INFO: dict[str, dict[str, str]] = {
     "china": {
         "standard": "🚢 Морская доставка — 18–25 дней",
-        "express": "🚂 Ж/Д доставка — 10–14 дней",
-        "urgent": "✈️ Авиадоставка — 3–6 дней",
+        "express":  "🚂 Ж/Д доставка — 10–14 дней",
+        "urgent":   "✈️ Авиадоставка — 3–6 дней",
     },
     "turkey": {
         "standard": "🚛 Автодоставка — 10–15 дней",
-        "express": "🚛 Экспресс-авто — 5–8 дней",
-        "urgent": "✈️ Авиадоставка — 2–4 дня",
+        "express":  "🚛 Экспресс-авто — 5–8 дней",
+        "urgent":   "✈️ Авиадоставка — 2–4 дня",
     },
     "uae": {
         "standard": "🚢 Морская доставка — 15–20 дней",
-        "express": "🚢+🚛 Мульти — 8–12 дней",
-        "urgent": "✈️ Авиадоставка — 2–4 дня",
+        "express":  "🚢+🚛 Мульти — 8–12 дней",
+        "urgent":   "✈️ Авиадоставка — 2–4 дня",
     },
     "israel": {
         "standard": "🚢 Морская доставка — 10–15 дней",
-        "express": "🚢+🚛 Мульти — 5–8 дней",
-        "urgent": "✈️ Авиадоставка — 2–3 дня",
+        "express":  "🚢+🚛 Мульти — 5–8 дней",
+        "urgent":   "✈️ Авиадоставка — 2–3 дня",
     },
 }
 
 DEFAULT_DELIVERY: dict[str, str] = {
     "standard": "🚢 Стандартная — 15–25 дней",
-    "express": "⚡ Экспресс — 7–12 дней",
-    "urgent": "✈️ Авиа / срочная — 3–6 дней",
+    "express":  "⚡ Экспресс — 7–12 дней",
+    "urgent":   "✈️ Авиа / срочная — 3–6 дней",
 }
 
 
-# ── Keyboard builders ───────────────────────────────────────────────
+# ── Keyboard builders ────────────────────────────────────────────────
+
+def service_kb() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    for label, data in SERVICE_OPTIONS:
+        b.button(text=label, callback_data=f"service:{data}")
+    b.adjust(1)
+    return b.as_markup()
+
 
 def country_kb() -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
@@ -131,11 +179,12 @@ def country_kb() -> InlineKeyboardMarkup:
 
 
 def city_kb(country: str) -> InlineKeyboardMarkup:
+    """city callback format: city:<country_key>:<city_name>"""
     b = InlineKeyboardBuilder()
     cities = CITIES_BY_COUNTRY.get(country, [])
     for city in cities:
-        b.button(text=city, callback_data=f"city:{city}")
-    b.button(text="✏️ Другой город", callback_data="city:__custom__")
+        b.button(text=city, callback_data=f"city:{country}:{city}")
+    b.button(text="✏️  Другой город", callback_data=f"city:{country}:__custom__")
     cols = 3 if len(cities) >= 6 else 2
     b.adjust(cols)
     return b.as_markup()
@@ -153,7 +202,7 @@ def weight_kb() -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for label, data in WEIGHT_PRESETS:
         b.button(text=label, callback_data=f"weight:{data}")
-    b.button(text="✏️ Ввести точно", callback_data="weight:__custom__")
+    b.button(text="✏️  Ввести точно", callback_data="weight:__custom__")
     b.adjust(2, 2, 2, 1)
     return b.as_markup()
 
@@ -162,7 +211,7 @@ def volume_kb() -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     for label, data in VOLUME_PRESETS:
         b.button(text=label, callback_data=f"volume:{data}")
-    b.button(text="✏️ Ввести точно", callback_data="volume:__custom__")
+    b.button(text="✏️  Ввести точно", callback_data="volume:__custom__")
     b.adjust(2, 2, 2, 1)
     return b.as_markup()
 
@@ -183,11 +232,26 @@ def incoterms_kb() -> InlineKeyboardMarkup:
     return b.as_markup()
 
 
+def customs_direction_kb() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    for label, data in CUSTOMS_DIRECTIONS:
+        b.button(text=label, callback_data=f"customs_dir:{data}")
+    b.adjust(1)
+    return b.as_markup()
+
+
+def invoice_kb() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    for label, data in INVOICE_PRESETS:
+        b.button(text=label, callback_data=f"invoice:{data}")
+    b.button(text="✏️  Ввести точную сумму", callback_data="invoice:__custom__")
+    b.adjust(2, 2, 2, 1)
+    return b.as_markup()
+
+
 def phone_kb() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text="📱 Отправить номер", request_contact=True)],
-        ],
+        keyboard=[[KeyboardButton(text="📱  Отправить номер", request_contact=True)]],
         resize_keyboard=True,
         one_time_keyboard=True,
     )
@@ -196,7 +260,7 @@ def phone_kb() -> ReplyKeyboardMarkup:
 def skip_comment_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="⏭ Пропустить", callback_data="skip_comment")]
+            [InlineKeyboardButton(text="⏭  Пропустить", callback_data="skip_comment")]
         ]
     )
 
@@ -204,10 +268,10 @@ def skip_comment_kb() -> InlineKeyboardMarkup:
 def after_submit_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📎 Добавить документы", callback_data="action:docs")],
-            [InlineKeyboardButton(text="✏️ Уточнить детали", callback_data="action:details")],
-            [InlineKeyboardButton(text="📞 Связаться с менеджером", callback_data="action:call")],
-            [InlineKeyboardButton(text="🔄 Новая заявка", callback_data="action:restart")],
+            [InlineKeyboardButton(text="📎  Добавить документы",   callback_data="action:docs")],
+            [InlineKeyboardButton(text="✏️  Уточнить детали",      callback_data="action:details")],
+            [InlineKeyboardButton(text="📞  Связаться с менеджером", callback_data="action:call")],
+            [InlineKeyboardButton(text="🔄  Новая заявка",          callback_data="action:restart")],
         ]
     )
 
@@ -216,14 +280,8 @@ def admin_lead_kb(lead_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(
-                    text="✅ В работу",
-                    callback_data=f"adm:progress:{lead_id}",
-                ),
-                InlineKeyboardButton(
-                    text="📞 Позвонить",
-                    callback_data=f"adm:call:{lead_id}",
-                ),
+                InlineKeyboardButton(text="✅ В работу",  callback_data=f"adm:progress:{lead_id}"),
+                InlineKeyboardButton(text="📞 Позвонить", callback_data=f"adm:call:{lead_id}"),
             ]
         ]
     )
