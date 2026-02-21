@@ -21,8 +21,12 @@ from bot.db import export_all_leads, get_lead, get_leads, update_lead_status
 from bot.keyboards import (
     CARGO_LABELS,
     COUNTRY_LABELS,
+    DEFAULT_DELIVERY,
+    DELIVERY_INFO,
     INCOTERMS_LABELS,
     URGENCY_LABELS,
+    VOLUME_LABELS,
+    WEIGHT_LABELS,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,6 +38,21 @@ STATUS_EMOJI = {"NEW": "🆕", "IN_PROGRESS": "🔄", "WON": "✅", "LOST": "❌
 
 def _is_admin(user_id: int) -> bool:
     return user_id in settings.admin_ids
+
+
+def _weight_display(val) -> str:  # noqa: ANN001
+    """Return a human label for weight. Checks preset labels first."""
+    s = str(val)
+    if s in WEIGHT_LABELS:
+        return WEIGHT_LABELS[s]
+    return f"{val} кг"
+
+
+def _volume_display(val) -> str:  # noqa: ANN001
+    s = str(val)
+    if s in VOLUME_LABELS:
+        return VOLUME_LABELS[s]
+    return f"{val} м³"
 
 
 # ── /leads ───────────────────────────────────────────────────────────
@@ -58,7 +77,7 @@ async def cmd_leads(message: Message) -> None:
         date = ld["created_at"].strftime("%d.%m %H:%M")
         lines.append(
             f"{emoji} <b>#{ld['id']}</b> | {country} | "
-            f"{ld['weight_kg']}кг | {ld['status']} | {date}"
+            f"{_weight_display(ld['weight_kg'])} | {ld['status']} | {date}"
         )
 
     await message.answer("\n".join(lines))
@@ -88,13 +107,18 @@ async def cmd_lead(message: Message) -> None:
     uname = f" (@{lead['username']})" if lead["username"] else ""
     comment = f"\n💬 {lead['comment']}" if lead["comment"] else ""
 
+    delivery = DELIVERY_INFO.get(lead["country"], DEFAULT_DELIVERY).get(lead["urgency"], "")
+
     await message.answer(
         f"📋 <b>Лид #{lead['id']}</b>\n\n"
         f"👤 {lead['full_name']}{uname}\n"
-        f"📱 {lead['phone']}\n"
+        f"📱 {lead['phone']}\n\n"
         f"🌍 {c} → {lead['city_from']}\n"
-        f"📦 {cargo}, {lead['weight_kg']} кг, {lead['volume_m3']} м³\n"
-        f"⏰ {urg} | {terms}\n"
+        f"📦 {cargo}\n"
+        f"⚖️ {_weight_display(lead['weight_kg'])} | 📐 {_volume_display(lead['volume_m3'])}\n"
+        f"⏰ {urg}\n"
+        f"💡 {delivery}\n"
+        f"📋 {terms}\n\n"
         f"📊 Статус: <b>{lead['status']}</b>\n"
         f"📅 Создан: {lead['created_at'].strftime('%d.%m.%Y %H:%M')}"
         f"{comment}"

@@ -1,5 +1,5 @@
 """
-T.E. Group Telegram Bot — entry point.
+TE GROUP Telegram Bot — entry point.
 
 Works on Render.com (worker) and fly.io (with health-check).
 """
@@ -59,7 +59,7 @@ async def _start_health_server() -> None:
 async def main() -> None:
     _setup_logging()
     logger = logging.getLogger("bot")
-    logger.info("Starting T.E. Group Bot")
+    logger.info("Starting TE GROUP Bot")
 
     # Database
     await init_db()

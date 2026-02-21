@@ -15,7 +15,7 @@ router = Router()
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     await message.answer(
-        "ℹ️ <b>T.E. Group — Бот логистики</b>\n\n"
+        "ℹ️ <b>TE GROUP — Бот логистики</b>\n\n"
         "🔹 /start — Новая заявка на доставку\n"
         "🔹 /help  — Помощь\n\n"
         "По вопросам: <b>info@tegroup.cc</b>\n"
