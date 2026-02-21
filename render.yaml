@@ -13,9 +13,9 @@ services:
     healthCheckPath: /health
     envVars:
       - key: BOT_TOKEN
-        value: "8242748185:AAHsQFvccfgHb6sLVO5rTIBTb_7d0CLbsQk"
+        sync: false
       - key: ADMIN_CHAT_ID
-        value: "-5134366412"
+        sync: false
       - key: DATABASE_URL
         fromDatabase:
           name: te-bot-db
