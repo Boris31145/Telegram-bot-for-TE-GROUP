@@ -19,7 +19,7 @@ from pythonjsonlogger import jsonlogger
 
 from bot.config import settings
 from bot.db import close_db, init_db
-from bot.handlers import admin, common, funnel
+from bot.handlers import admin, agent, common, funnel
 from bot.middleware import AntiSpamMiddleware
 
 
@@ -76,6 +76,7 @@ async def main() -> None:
 
     # Routers (order matters: common first, then admin, then funnel)
     dp.include_router(common.router)
+    dp.include_router(agent.router)
     dp.include_router(admin.router)
     dp.include_router(funnel.router)
 

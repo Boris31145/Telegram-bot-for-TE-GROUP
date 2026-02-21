@@ -28,7 +28,7 @@ CITIES_BY_COUNTRY: dict[str, list[str]] = {
 }
 
 CARGO_TYPES = [
-    ("📦 Генеральный", "general"),
+    ("📦 Стандартный", "general"),
     ("⚠️ Опасный", "dangerous"),
     ("📐 Негабаритный", "oversized"),
     ("🔄 Сборный", "consolidated"),
