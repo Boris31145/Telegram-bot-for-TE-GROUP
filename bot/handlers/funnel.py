@@ -99,8 +99,7 @@ def _card(data: dict, step: int, question: str = "") -> str:
 
 # ── 1. /start ────────────────────────────────────────────────────────
 
-@router.message(Command("start"))
-async def cmd_start(message: Message, state: FSMContext) -> None:
+async def _start_flow(message: Message, state: FSMContext) -> None:
     await state.clear()
     text = (
         "<b>👋 Добро пожаловать в TE GROUP!</b>\n\n"
@@ -110,6 +109,16 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
     )
     await message.answer(text, reply_markup=country_kb())
     await state.set_state(OrderForm.country)
+
+
+@router.message(Command("start"))
+async def cmd_start(message: Message, state: FSMContext) -> None:
+    await _start_flow(message, state)
+
+
+@router.message(F.text.regexp(r"(?i)^(start|старт)$"))
+async def text_start(message: Message, state: FSMContext) -> None:
+    await _start_flow(message, state)
 
 
 # ── 2. Country ───────────────────────────────────────────────────────
