@@ -20,7 +20,7 @@ from pythonjsonlogger import jsonlogger
 
 from bot.config import settings
 from bot.db import close_db, init_db
-from bot.handlers import admin, agent, common, funnel
+from bot.handlers import admin, common, funnel
 from bot.middleware import AntiSpamMiddleware
 
 
@@ -71,14 +71,14 @@ async def main() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
-    # Commands menu (Telegram shows a "Menu" button — no need to type /start)
+    # Commands menu (Telegram shows a "Menu" button)
     await bot.set_my_commands(
         [
-            BotCommand(command="start", description="📦 Рассчитать доставку"),
-            BotCommand(command="faq", description="❓ Вопросы: доставка/таможня"),
+            BotCommand(command="start", description="📦 Новая заявка"),
             BotCommand(command="help", description="ℹ️ Помощь"),
         ]
     )
+
     dp = Dispatcher(storage=MemoryStorage())
 
     # Middleware
@@ -86,7 +86,6 @@ async def main() -> None:
 
     # Routers (order matters: common first, then admin, then funnel)
     dp.include_router(common.router)
-    dp.include_router(agent.router)
     dp.include_router(admin.router)
     dp.include_router(funnel.router)
 
