@@ -36,23 +36,21 @@ def _setup_logging() -> None:
     logging.root.setLevel(settings.LOG_LEVEL)
 
 
-# ── Optional health-check (only when PORT env is set, e.g. fly.io) ──
+# ── Health-check server (Render.com / fly.io) ───────────────────────
 
-async def _maybe_start_health_server() -> None:
-    port = os.environ.get("PORT")
-    if not port:
-        return
+async def _start_health_server() -> None:
     from aiohttp import web
 
     async def _health(_r: web.Request) -> web.Response:
         return web.Response(text="ok")
 
+    port = int(os.environ.get("PORT", "10000"))
     app = web.Application()
     app.router.add_get("/", _health)
     app.router.add_get("/health", _health)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(port))
+    site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
 
 
@@ -81,8 +79,9 @@ async def main() -> None:
     dp.include_router(admin.router)
     dp.include_router(funnel.router)
 
-    # Optional health-check (fly.io sets PORT automatically)
-    await _maybe_start_health_server()
+    # Health-check server (Render / fly.io need an HTTP endpoint)
+    await _start_health_server()
+    logger.info("Health server on :%s", os.environ.get("PORT", "10000"))
 
     # Start long-polling
     try:

@@ -5,11 +5,12 @@ databases:
     user: te_bot_user
 
 services:
-  - type: worker
+  - type: web
     name: te-group-bot
     plan: free
     runtime: docker
     dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
     envVars:
       - key: BOT_TOKEN
         sync: false
