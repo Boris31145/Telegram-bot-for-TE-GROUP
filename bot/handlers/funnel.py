@@ -54,8 +54,11 @@ TOTAL_STEPS = 8
 # ── Helper: build a progress card ────────────────────────────────────
 
 def _bar(step: int) -> str:
-    """Visual step indicator: ●●●○○○○○ 3/8"""
-    return "●" * step + "○" * (TOTAL_STEPS - step) + f"  {step}/{TOTAL_STEPS}"
+    """Premium-ish step indicator."""
+    step = max(1, min(TOTAL_STEPS, step))
+    filled = "▰" * step
+    empty = "▱" * (TOTAL_STEPS - step)
+    return f"Шаг {step}/{TOTAL_STEPS}  {filled}{empty}"
 
 
 def _card(data: dict, step: int, question: str = "") -> str:
@@ -63,7 +66,11 @@ def _card(data: dict, step: int, question: str = "") -> str:
     Build an accumulating summary card.
     Shows all previously collected data + the current question.
     """
-    lines: list[str] = [f"<b>📋 Заявка на доставку</b>\n{_bar(step)}\n"]
+    lines: list[str] = [
+        "<b>TE GROUP • Расчёт доставки</b>\n"
+        "<i>Сроки покажем сразу, цену уточнит менеджер</i>\n"
+        f"{_bar(step)}\n"
+    ]
 
     if data.get("country"):
         lbl = COUNTRY_LABELS.get(data["country"], data["country"])
@@ -97,16 +104,26 @@ def _card(data: dict, step: int, question: str = "") -> str:
     return "\n".join(lines)
 
 
+async def _safe_edit(
+    cb: CallbackQuery,
+    text: str,
+    reply_markup=None,  # noqa: ANN001
+) -> None:
+    """
+    Render free tier can restart; users may click old buttons.
+    If edit fails (old message / too old / already edited), send a new message.
+    """
+    try:
+        await cb.message.edit_text(text, reply_markup=reply_markup)  # type: ignore[union-attr]
+    except Exception:
+        await cb.message.answer(text, reply_markup=reply_markup)  # type: ignore[union-attr]
+
+
 # ── 1. /start ────────────────────────────────────────────────────────
 
 async def _start_flow(message: Message, state: FSMContext) -> None:
     await state.clear()
-    text = (
-        "<b>TE GROUP — расчёт доставки</b>\n"
-        "Сроки покажем сразу, стоимость уточнит менеджер.\n\n"
-        f"{_card({}, 0, '🌍 <b>Страна отправления:</b>')}"
-    )
-    await message.answer(text, reply_markup=country_kb())
+    await message.answer(_card({}, 1, "🌍 <b>Страна отправления:</b>"), reply_markup=country_kb())
     await state.set_state(OrderForm.country)
 
 
@@ -122,21 +139,21 @@ async def text_start(message: Message, state: FSMContext) -> None:
 
 # ── 2. Country ───────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.country, F.data.startswith("country:"))
+@router.callback_query(F.data.startswith("country:"))
 async def pick_country(cb: CallbackQuery, state: FSMContext) -> None:
     value = cb.data.split(":")[1]  # type: ignore[union-attr]
 
     if value == "other":
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card({}, 0, "🌍 <b>Введите название страны:</b>"),
-        )
+        await _safe_edit(cb, _card({}, 1, "🌍 <b>Введите название страны:</b>"))
         await cb.answer()
         return
 
+    # Reset funnel from country selection (works even if state was lost)
+    await state.clear()
     await state.update_data(country=value)
     data = await state.get_data()
-    text = _card(data, 1, "📍 <b>Выберите город отправления:</b>")
-    await cb.message.edit_text(text, reply_markup=city_kb(value))  # type: ignore[union-attr]
+    text = _card(data, 2, "📍 <b>Город отправления:</b>")
+    await _safe_edit(cb, text, reply_markup=city_kb(value))
     await state.set_state(OrderForm.city)
     await cb.answer()
 
@@ -153,22 +170,33 @@ async def type_other_country(message: Message, state: FSMContext) -> None:
 
 # ── 3. City ──────────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.city, F.data.startswith("city:"))
+@router.callback_query(F.data.startswith("city:"))
 async def pick_city(cb: CallbackQuery, state: FSMContext) -> None:
-    value = cb.data.split(":", 1)[1]  # type: ignore[union-attr]
+    # city:<country>:<city>
+    parts = cb.data.split(":", 2)  # type: ignore[union-attr]
+    if len(parts) < 3:
+        await cb.answer()
+        return
+    country = parts[1]
+    value = parts[2]
 
     if value == "__custom__":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 1, "📍 <b>Введите название города:</b>"),
-        )
+        # If state was lost, restore country from callback
+        if not data.get("country"):
+            await state.update_data(country=country)
+            data = await state.get_data()
+        await _safe_edit(cb, _card(data, 2, "📍 <b>Введите название города:</b>"))
         await cb.answer()
         return
 
+    data = await state.get_data()
+    if not data.get("country"):
+        await state.update_data(country=country)
     await state.update_data(city_from=value)
     data = await state.get_data()
-    text = _card(data, 2, "📦 <b>Выберите тип груза:</b>")
-    await cb.message.edit_text(text, reply_markup=cargo_kb())  # type: ignore[union-attr]
+    text = _card(data, 3, "📦 <b>Тип груза:</b>")
+    await _safe_edit(cb, text, reply_markup=cargo_kb())
     await state.set_state(OrderForm.cargo_type)
     await cb.answer()
 
@@ -188,20 +216,20 @@ async def type_city(message: Message, state: FSMContext) -> None:
 
 # ── 4. Cargo type ────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.cargo_type, F.data.startswith("cargo:"))
+@router.callback_query(F.data.startswith("cargo:"))
 async def pick_cargo(cb: CallbackQuery, state: FSMContext) -> None:
     value = cb.data.split(":")[1]  # type: ignore[union-attr]
     await state.update_data(cargo_type=value)
     data = await state.get_data()
-    text = _card(data, 3, "⚖️ <b>Укажите вес груза:</b>")
-    await cb.message.edit_text(text, reply_markup=weight_kb())  # type: ignore[union-attr]
+    text = _card(data, 4, "⚖️ <b>Вес груза:</b>")
+    await _safe_edit(cb, text, reply_markup=weight_kb())
     await state.set_state(OrderForm.weight)
     await cb.answer()
 
 
 # ── 5. Weight ────────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.weight, F.data.startswith("weight:"))
+@router.callback_query(F.data.startswith("weight:"))
 async def pick_weight(cb: CallbackQuery, state: FSMContext) -> None:
     value = cb.data.split(":")[1]  # type: ignore[union-attr]
 
@@ -215,8 +243,8 @@ async def pick_weight(cb: CallbackQuery, state: FSMContext) -> None:
 
     await state.update_data(weight_kg=value)
     data = await state.get_data()
-    text = _card(data, 4, "📐 <b>Укажите объём груза:</b>")
-    await cb.message.edit_text(text, reply_markup=volume_kb())  # type: ignore[union-attr]
+    text = _card(data, 5, "📐 <b>Объём груза:</b>")
+    await _safe_edit(cb, text, reply_markup=volume_kb())
     await state.set_state(OrderForm.volume)
     await cb.answer()
 
@@ -240,7 +268,7 @@ async def type_weight(message: Message, state: FSMContext) -> None:
 
 # ── 6. Volume ────────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.volume, F.data.startswith("volume:"))
+@router.callback_query(F.data.startswith("volume:"))
 async def pick_volume(cb: CallbackQuery, state: FSMContext) -> None:
     value = cb.data.split(":")[1]  # type: ignore[union-attr]
 
@@ -254,8 +282,8 @@ async def pick_volume(cb: CallbackQuery, state: FSMContext) -> None:
 
     await state.update_data(volume_m3=value)
     data = await state.get_data()
-    text = _card(data, 5, "⏰ <b>Выберите срочность доставки:</b>")
-    await cb.message.edit_text(text, reply_markup=urgency_kb())  # type: ignore[union-attr]
+    text = _card(data, 6, "⏰ <b>Срочность доставки:</b>")
+    await _safe_edit(cb, text, reply_markup=urgency_kb())
     await state.set_state(OrderForm.urgency)
     await cb.answer()
 
@@ -279,28 +307,28 @@ async def type_volume(message: Message, state: FSMContext) -> None:
 
 # ── 7. Urgency ───────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.urgency, F.data.startswith("urgency:"))
+@router.callback_query(F.data.startswith("urgency:"))
 async def pick_urgency(cb: CallbackQuery, state: FSMContext) -> None:
     value = cb.data.split(":")[1]  # type: ignore[union-attr]
     await state.update_data(urgency=value)
     data = await state.get_data()
-    text = _card(data, 6, "📋 <b>Выберите условия поставки (Инкотермс):</b>")
-    await cb.message.edit_text(text, reply_markup=incoterms_kb())  # type: ignore[union-attr]
+    text = _card(data, 7, "📋 <b>Условия поставки (Инкотермс):</b>")
+    await _safe_edit(cb, text, reply_markup=incoterms_kb())
     await state.set_state(OrderForm.incoterms)
     await cb.answer()
 
 
 # ── 8. Incoterms ─────────────────────────────────────────────────────
 
-@router.callback_query(OrderForm.incoterms, F.data.startswith("terms:"))
+@router.callback_query(F.data.startswith("terms:"))
 async def pick_incoterms(cb: CallbackQuery, state: FSMContext) -> None:
     value = cb.data.split(":")[1]  # type: ignore[union-attr]
     await state.update_data(incoterms=value)
     data = await state.get_data()
 
     # Edit the card to show complete progress
-    text = _card(data, 7, "📱 <b>Поделитесь номером телефона для связи:</b>")
-    await cb.message.edit_text(text)  # type: ignore[union-attr]
+    text = _card(data, 8, "📱 <b>Контактный телефон:</b>")
+    await _safe_edit(cb, text)
 
     # Send reply-keyboard for phone (needs a separate message)
     await cb.message.answer(  # type: ignore[union-attr]

@@ -134,8 +134,8 @@ def city_kb(country: str) -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
     cities = CITIES_BY_COUNTRY.get(country, [])
     for city in cities:
-        b.button(text=city, callback_data=f"city:{city}")
-    b.button(text="✏️ Другой город", callback_data="city:__custom__")
+        b.button(text=city, callback_data=f"city:{country}:{city}")
+    b.button(text="✏️ Другой город", callback_data=f"city:{country}:__custom__")
     cols = 3 if len(cities) >= 6 else 2
     b.adjust(cols)
     return b.as_markup()
