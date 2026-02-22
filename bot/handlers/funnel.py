@@ -39,6 +39,7 @@ from bot.keyboards import (
     VOLUME_TO_FLOAT,
     WEIGHT_LABELS,
     WEIGHT_TO_FLOAT,
+    admin_lead_kb,
     after_submit_kb,
     cargo_kb,
     city_kb,
@@ -164,61 +165,99 @@ def _card_id(data: dict, cb: CallbackQuery | None = None) -> int:
 # ═══════════════════════════════════════════════════════════════
 
 async def _notify_admins(bot: Bot, lead_id: int, data: dict, service: str) -> bool:
-    svc = {"customs": "🛃 Таможня", "delivery": "🚚 Доставка", "question": "💬 Вопрос"}.get(service, service)
-    name = data.get("full_name", "")
+    """Send a premium-styled lead notification to all admins."""
+    svc_map = {
+        "customs": "🛃 Таможня",
+        "delivery": "🚚 Доставка",
+        "question": "💬 Вопрос",
+    }
+    svc = svc_map.get(service, service)
+
+    # ── Header ──────────────────────────────────────────────
+    if lead_id:
+        header = f"🆕  <b>Заявка #{lead_id}</b>  ·  {svc}"
+    else:
+        header = f"🆕  <b>Новая заявка</b>  ·  {svc}"
+
+    # ── Common user info ────────────────────────────────────
+    name = _e(data.get("full_name", ""))
     uname = data.get("username", "")
-    phone = data.get("phone", "")
-    country = COUNTRY_LABELS.get(data.get("country", ""), data.get("country", ""))
+    phone = _e(data.get("phone", ""))
     comment = data.get("comment", "")
 
-    uname_part = f"  @{uname}" if uname else ""
-    comment_part = f"\n💬 {comment}" if comment else ""
+    user_line = f"👤  {name}" if name else "👤  —"
+    if uname:
+        user_line += f"  ·  @{_e(uname)}"
 
+    lines: list[str] = [header, ""]
+    lines.append(user_line)
+
+    if phone:
+        lines.append(f"📞  {phone}")
+
+    # ── Service-specific fields ────────────────────────────
     if service == "customs":
-        cargo = CARGO_LABELS.get(data.get("cargo_type", ""), data.get("cargo_type", ""))
-        inv = INVOICE_LABELS.get(data.get("invoice_value", ""), data.get("invoice_value", ""))
-        urg = CUSTOMS_URGENCY_LABELS.get(data.get("customs_urgency", ""), "")
-        text = (
-            f"🆕  Заявка #{lead_id}  ·  {svc}\n"
-            f"─────────────────\n"
-            f"👤 {name}{uname_part}\n"
-            f"📞 {phone}\n"
-            f"📦 {cargo}\n"
-            f"🌍 {country}\n"
-            f"💰 {inv}\n"
-            f"⏰ {urg}"
-            f"{comment_part}"
-        )
+        cargo = _e(CARGO_LABELS.get(data.get("cargo_type", ""), data.get("cargo_type", "")))
+        country = _e(COUNTRY_LABELS.get(data.get("country", ""), data.get("country", "")))
+        inv = _e(INVOICE_LABELS.get(data.get("invoice_value", ""), data.get("invoice_value", "")))
+        urg = _e(CUSTOMS_URGENCY_LABELS.get(data.get("customs_urgency", ""), ""))
+
+        lines.append("")
+        if country:
+            lines.append(f"🌍  {country}")
+        if cargo:
+            lines.append(f"📦  {cargo}")
+        if inv:
+            lines.append(f"💰  {inv}")
+        if urg:
+            lines.append(f"⏰  {urg}")
+
     elif service == "question":
-        text = (
-            f"💬  Вопрос #{lead_id}\n"
-            f"─────────────────\n"
-            f"👤 {name}{uname_part}\n"
-            f"ID: {data.get('telegram_id', '')}\n"
-            f"\n{comment}"
-        )
-    else:
-        city = data.get("city_from", "")
-        cargo = CARGO_LABELS.get(data.get("cargo_type", ""), data.get("cargo_type", ""))
+        tg_id = data.get("telegram_id", "")
+        if tg_id:
+            lines.append(f"🆔  <code>{tg_id}</code>")
+
+    else:  # delivery
+        country = _e(COUNTRY_LABELS.get(data.get("country", ""), data.get("country", "")))
+        city = _e(data.get("city_from", ""))
+        cargo = _e(CARGO_LABELS.get(data.get("cargo_type", ""), data.get("cargo_type", "")))
         weight = data.get("weight_kg", 0)
         volume = data.get("volume_m3", 0)
-        urg = URGENCY_LABELS.get(data.get("urgency", ""), "")
-        text = (
-            f"🆕  Заявка #{lead_id}  ·  {svc}\n"
-            f"─────────────────\n"
-            f"👤 {name}{uname_part}\n"
-            f"📞 {phone}\n"
-            f"🌍 {country} → {city}\n"
-            f"📦 {cargo}\n"
-            f"⚖️ {weight} кг  ·  📐 {volume} м³\n"
-            f"⏰ {urg}"
-            f"{comment_part}"
-        )
+        urg = _e(URGENCY_LABELS.get(data.get("urgency", ""), ""))
+
+        lines.append("")
+        if country and city:
+            lines.append(f"🌍  {country}  →  {city}")
+        elif country:
+            lines.append(f"🌍  {country}")
+        if cargo:
+            lines.append(f"📦  {cargo}")
+
+        dims: list[str] = []
+        if weight:
+            dims.append(f"⚖️ {weight} кг")
+        if volume:
+            dims.append(f"📐 {volume} м³")
+        if dims:
+            lines.append(f"{'  ·  '.join(dims)}")
+
+        if urg:
+            lines.append(f"⏰  {urg}")
+
+    # ── Comment ─────────────────────────────────────────────
+    if comment:
+        lines.append("")
+        lines.append(f"💬  <i>{_e(comment)}</i>")
+
+    text = "\n".join(lines)
+
+    # ── Send to admins (with action buttons if we have a lead) ──
+    markup = admin_lead_kb(lead_id) if lead_id else None
 
     ok = False
     for admin_id in settings.admin_ids:
         try:
-            await bot.send_message(admin_id, text, parse_mode=None)
+            await bot.send_message(admin_id, text, reply_markup=markup)
             ok = True
         except Exception as exc:
             logger.error("Notify admin %s failed: %s", admin_id, exc)

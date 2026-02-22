@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "feat: premium message design — replace heavy bars with clean minimal style"
+git commit -m "fix: admin notifications — premium design, action buttons, skip empty fields, handle lead#0"
 git push origin main
 echo.
 echo === Done! ===
