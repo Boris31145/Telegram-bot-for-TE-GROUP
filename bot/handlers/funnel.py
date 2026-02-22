@@ -252,45 +252,58 @@ async def _finish(msg: Message, state: FSMContext, bot: Bot) -> None:
         "customs_direction": "",
     }
 
-    # Save
+    # Save to DB (non-fatal — we still notify admins if this fails)
+    lead_id = 0
     try:
         lead_id = await save_lead(lead_data)
     except Exception:
-        logger.exception("save_lead failed")
-        await msg.answer(
-            "⚠️ Ошибка сохранения. Попробуйте ещё раз\n"
-            "или напишите <b>info@tegroup.cc</b>",
-        )
-        await state.clear()
-        return
+        logger.exception("save_lead failed — will still notify admins")
 
-    # Confirmation to user
-    try:
-        svc_line = "🛃 Таможня · ЕАЭС" if service == "customs" else "🚚 Доставка груза"
-        await msg.answer(
-            f"🏢 <b>TE GROUP</b>\n"
-            f"{_DIV}\n\n"
-            f"✅ <b>Заявка #{lead_id} принята</b>\n\n"
-            f"{svc_line}\n\n"
-            f"Менеджер рассчитает стоимость\n"
-            f"и свяжется <b>в течение 1 часа</b>.\n\n"
-            f"{_DIV}\n"
-            f"Спасибо за обращение!",
-            reply_markup=after_submit_kb(),
-        )
-    except Exception:
-        try:
-            await msg.answer(f"✅ Заявка #{lead_id} принята. Менеджер свяжется.", parse_mode=None)
-        except Exception:
-            pass
-
-    # Notify admins
+    # Notify admins FIRST (most important action)
     notified = await _notify_admins(bot, lead_id, lead_data, service)
     if not notified:
         logger.error("ALL admin notifications failed for lead #%d", lead_id)
 
+    # Confirmation to user
+    if lead_id:
+        try:
+            svc_line = "🛃 Таможня · ЕАЭС" if service == "customs" else "🚚 Доставка груза"
+            await msg.answer(
+                f"🏢 <b>TE GROUP</b>\n"
+                f"{_DIV}\n\n"
+                f"✅ <b>Заявка #{lead_id} принята</b>\n\n"
+                f"{svc_line}\n\n"
+                f"Менеджер рассчитает стоимость\n"
+                f"и свяжется <b>в течение 1 часа</b>.\n\n"
+                f"{_DIV}\n"
+                f"Спасибо за обращение!",
+                reply_markup=after_submit_kb(),
+            )
+        except Exception:
+            try:
+                await msg.answer(f"✅ Заявка #{lead_id} принята. Менеджер свяжется.", parse_mode=None)
+            except Exception:
+                pass
+    else:
+        # DB save failed but admins were notified
+        try:
+            await msg.answer(
+                f"🏢 <b>TE GROUP</b>\n"
+                f"{_DIV}\n\n"
+                f"✅ <b>Заявка отправлена менеджеру!</b>\n\n"
+                f"Свяжемся <b>в течение 1 часа</b>.\n\n"
+                f"{_DIV}\n"
+                f"Спасибо за обращение!",
+                reply_markup=after_submit_kb(),
+            )
+        except Exception:
+            try:
+                await msg.answer("✅ Заявка отправлена. Менеджер свяжется.", parse_mode=None)
+            except Exception:
+                pass
+
     await state.clear()
-    logger.info("Lead #%d done [%s]", lead_id, service)
+    logger.info("Lead #%d done [%s] (admin_notified=%s)", lead_id, service, notified)
 
 
 def _resolve_weight(raw: str) -> float:
@@ -390,8 +403,11 @@ async def got_question(message: Message, state: FSMContext, bot: Bot) -> None:
     except Exception:
         logger.warning("Could not save question to DB")
 
-    # Forward to admins
-    await _notify_admins(bot, lead_id, lead_data, "question")
+    # Forward to admins — this is the most important step
+    notified = await _notify_admins(bot, lead_id, lead_data, "question")
+    if not notified:
+        logger.error("Question from user %s NOT delivered to any admin!",
+                      user.id if user else "?")
 
     await message.answer(
         "🏢 <b>TE GROUP</b>\n"
@@ -747,31 +763,46 @@ async def d_urgency(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
 async def got_phone_contact(message: Message, state: FSMContext) -> None:
     phone = message.contact.phone_number  # type: ignore[union-attr]
     await state.update_data(phone=phone)
-    # Remove reply keyboard
-    await message.answer("✅ Принято!", reply_markup=ReplyKeyboardRemove())
-    # Comment prompt
-    await message.answer(
-        "💬 <b>Комментарий к заявке?</b>\n\n"
-        "<i>Напишите текст или нажмите «Пропустить»</i>",
-        reply_markup=skip_comment_kb(),
-    )
-    await state.set_state(OrderForm.comment)
+    try:
+        # Remove reply keyboard
+        await message.answer("✅ Принято!", reply_markup=ReplyKeyboardRemove())
+        # Comment prompt
+        await message.answer(
+            "💬 <b>Комментарий к заявке?</b>\n\n"
+            "<i>Напишите текст или нажмите «Пропустить»</i>",
+            reply_markup=skip_comment_kb(),
+        )
+        await state.set_state(OrderForm.comment)
+    except Exception as exc:
+        logger.error("got_phone_contact error: %s", exc)
+        await message.answer("⚠️ Ошибка. Попробуйте /start")
+        await state.clear()
 
 
 @router.message(OrderForm.phone)
 async def got_phone_text(message: Message, state: FSMContext) -> None:
     phone = (message.text or "").strip()
-    if len(phone) < 6:
-        await message.answer("Введите корректный номер телефона.")
+    # Accept anything that looks like a phone number (digits, +, spaces, dashes, parens)
+    clean = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
+    if len(clean) < 6 or not any(c.isdigit() for c in clean):
+        await message.answer(
+            "📱 Введите корректный номер телефона.\n"
+            "Например: +7 999 123 45 67",
+        )
         return
     await state.update_data(phone=phone)
-    await message.answer("✅ Принято!", reply_markup=ReplyKeyboardRemove())
-    await message.answer(
-        "💬 <b>Комментарий к заявке?</b>\n\n"
-        "<i>Напишите текст или нажмите «Пропустить»</i>",
-        reply_markup=skip_comment_kb(),
-    )
-    await state.set_state(OrderForm.comment)
+    try:
+        await message.answer("✅ Принято!", reply_markup=ReplyKeyboardRemove())
+        await message.answer(
+            "💬 <b>Комментарий к заявке?</b>\n\n"
+            "<i>Напишите текст или нажмите «Пропустить»</i>",
+            reply_markup=skip_comment_kb(),
+        )
+        await state.set_state(OrderForm.comment)
+    except Exception as exc:
+        logger.error("got_phone_text error: %s", exc)
+        await message.answer("⚠️ Ошибка. Попробуйте /start")
+        await state.clear()
 
 
 @router.callback_query(OrderForm.comment, F.data == "skip_comment")

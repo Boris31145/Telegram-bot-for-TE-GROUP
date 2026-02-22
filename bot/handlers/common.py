@@ -1,14 +1,18 @@
-"""Common handlers: /start, /help, error handler, fallback forwarder."""
+"""Common handlers: /start, /help, error handler, fallback forwarder.
+
+The fallback_router also includes a CATCH-ALL for callback queries
+so that when FSM state is lost (e.g. after a Render restart),
+inline-button presses don't silently disappear.
+"""
 
 from __future__ import annotations
 
-import html
 import logging
 
 from aiogram import Bot, F, Router
 from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import ErrorEvent, Message
+from aiogram.types import CallbackQuery, ErrorEvent, Message, ReplyKeyboardRemove
 
 from bot.config import settings
 from bot.keyboards import service_kb
@@ -43,6 +47,8 @@ WELCOME_TEXT = (
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     try:
+        # Remove any leftover reply keyboard (e.g. phone share button)
+        await message.answer("⏳", reply_markup=ReplyKeyboardRemove())
         msg = await message.answer(WELCOME_TEXT, reply_markup=service_kb())
         await state.update_data(card_id=msg.message_id)
         await state.set_state(OrderForm.service)
@@ -55,7 +61,7 @@ async def cmd_start(message: Message, state: FSMContext) -> None:
         )
 
 
-@router.message(F.text.regexp(r"(?i)^(start|старт|начать|привет)$"))
+@router.message(F.text.regexp(r"(?i)^(start|старт|начать|привет|меню|menu)$"))
 async def text_start(message: Message, state: FSMContext) -> None:
     await cmd_start(message, state)
 
@@ -90,14 +96,50 @@ async def global_error_handler(event: ErrorEvent) -> None:
 
 
 # ═══════════════════════════════════════════════════════════════
-# Fallback — forward unhandled messages to admins
+# FALLBACK — catch-all for expired/lost sessions
 # ═══════════════════════════════════════════════════════════════
 
+@fallback_router.callback_query()
+async def expired_callback(cb: CallbackQuery, state: FSMContext) -> None:
+    """Handle any callback that wasn't caught by FSM-state handlers.
+
+    This happens when the bot restarts and MemoryStorage is wiped —
+    all inline-button presses from before the restart lose context.
+    We recover gracefully by restarting the conversation.
+    """
+    logger.info(
+        "Expired/unmatched callback from user %s: %s",
+        cb.from_user.id, cb.data,
+    )
+    await cb.answer("⏳ Сессия истекла — начинаем заново", show_alert=False)
+    try:
+        msg = await cb.message.answer(  # type: ignore[union-attr]
+            WELCOME_TEXT, reply_markup=service_kb(),
+        )
+        await state.clear()
+        await state.update_data(card_id=msg.message_id)
+        await state.set_state(OrderForm.service)
+    except Exception as exc:
+        logger.error("Recovery after expired callback failed: %s", exc)
+
+
 @fallback_router.message()
-async def fallback_forward(message: Message, bot: Bot) -> None:
+async def fallback_forward(message: Message, bot: Bot, state: FSMContext) -> None:
+    """Forward any unhandled messages to admins.
+
+    Also handles the case where a user is mid-funnel but the bot restarted
+    and the FSM state is lost — the user's text message won't match any
+    state handler and lands here.
+    """
     user = message.from_user
     if not user:
         return
+
+    # Remove any stale reply keyboard
+    try:
+        await message.answer("⏳", reply_markup=ReplyKeyboardRemove())
+    except Exception:
+        pass
 
     header = (
         f"💬 Сообщение от клиента\n"
@@ -108,15 +150,23 @@ async def fallback_forward(message: Message, bot: Bot) -> None:
         f"{'=' * 30}"
     )
 
+    forwarded = False
     for admin_id in settings.admin_ids:
         try:
             await bot.send_message(admin_id, header, parse_mode=None)
             await message.forward(admin_id)
+            forwarded = True
         except Exception as exc:
             logger.error("Forward to admin %s failed: %s", admin_id, exc)
 
-    await message.answer(
-        "✉️ <b>Сообщение получено!</b>\n\n"
-        "Менеджер ответит вам в ближайшее время.\n"
-        "Для оформления заявки — /start",
-    )
+    if forwarded:
+        await message.answer(
+            "✉️ <b>Сообщение получено!</b>\n\n"
+            "Менеджер ответит вам в ближайшее время.\n\n"
+            "Для оформления заявки — /start",
+        )
+    else:
+        await message.answer(
+            "✉️ <b>Сообщение получено!</b>\n\n"
+            "Для оформления заявки нажмите /start",
+        )

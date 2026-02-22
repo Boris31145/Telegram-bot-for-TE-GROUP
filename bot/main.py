@@ -2,7 +2,8 @@
 
 Key design:
 - Bot starts even if the database is unreachable (retry in background).
-- Simple logging (no extra dependencies).
+- Never drops pending updates (so messages during restart are processed).
+- Bot description / short description set on every start for branding.
 - Health-check HTTP server for Render.
 """
 
@@ -52,7 +53,24 @@ async def _start_health_server() -> None:
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
-    return
+
+
+async def _set_bot_branding(bot: Bot) -> None:
+    """Set bot description and short description for TE GROUP branding."""
+    logger = logging.getLogger("bot")
+    try:
+        await bot.set_my_description(
+            "TE GROUP — Импорт в Россию через ЕАЭС.\n"
+            "Доставка и таможенное оформление под ключ.\n\n"
+            "🇨🇳 Китай · 🇹🇷 Турция · 🇦🇪 ОАЭ · 🇮🇱 Израиль\n\n"
+            "Нажмите «Начать» для оформления заявки."
+        )
+        await bot.set_my_short_description(
+            "TE GROUP · Импорт в Россию через ЕАЭС — доставка и таможня под ключ"
+        )
+        logger.info("Bot branding set")
+    except Exception as exc:
+        logger.warning("Could not set bot description: %s", exc)
 
 
 async def main() -> None:
@@ -71,10 +89,12 @@ async def main() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
+    # Commands & branding
     await bot.set_my_commands([
         BotCommand(command="start", description="📦 Новая заявка"),
         BotCommand(command="help", description="ℹ️ Помощь"),
     ])
+    await _set_bot_branding(bot)
 
     dp = Dispatcher(storage=MemoryStorage())
     dp.message.middleware(AntiSpamMiddleware())
@@ -90,8 +110,9 @@ async def main() -> None:
     logger.info("Health server on :%s", os.environ.get("PORT", "10000"))
 
     try:
-        await bot.delete_webhook(drop_pending_updates=True)
-        logger.info("Polling started")
+        # CRITICAL: drop_pending_updates=False — do NOT lose messages sent during restart
+        await bot.delete_webhook(drop_pending_updates=False)
+        logger.info("Polling started (pending updates preserved)")
         await dp.start_polling(bot)
     finally:
         await close_db()
