@@ -86,10 +86,10 @@ def _card(data: dict, step: int, question: str = "") -> str:
     service = data.get("service", "delivery")
     total = TOTAL_CUSTOMS if service == "customs" else TOTAL_DELIVERY
 
-        if service == "customs":
-            header = "🏢 <b>TE GROUP</b> · 🛃 Таможня"
-        else:
-            header = "🏢 <b>TE GROUP</b> · 🚚 Доставка"
+    if service == "customs":
+        header = "🏢 <b>TE GROUP</b> · 🛃 Таможня"
+    else:
+        header = "🏢 <b>TE GROUP</b> · 🚚 Доставка"
 
     lines: list[str] = [header, _DIV]
     bar = _bar(step, total)

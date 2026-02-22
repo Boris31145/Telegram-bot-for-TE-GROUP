@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "fix: remove hourglass flash, shorten divider, update help with RU phone, fix branding"
+git commit -m "fix: critical IndentationError in funnel.py _card() — bot could not start"
 git push origin main
 echo.
 echo === Done! ===
