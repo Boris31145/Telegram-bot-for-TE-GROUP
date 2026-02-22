@@ -23,17 +23,18 @@ router = Router()
 fallback_router = Router()
 
 # ── Visual constants ─────────────────────────────────────────
-_DIV = "━" * 20
+_DIV = "━" * 16
 
 WELCOME_TEXT = (
     "🏢  <b>TE GROUP</b>\n"
     f"{_DIV}\n\n"
     "Импорт товаров <b>в Россию</b>\n"
     "через ЕАЭС · Кыргызстан\n\n"
-    "✓ Самые низкие ставки таможни в ЕАЭС\n"
-    "✓ Свободная продажа в РФ без повторной растаможки\n"
-    "✓ Доставка из Китая, Турции, ОАЭ, Израиля\n"
-    "✓ Полностью легально, все документы\n\n"
+    "✓ Низкие ставки таможни в ЕАЭС\n"
+    "✓ Свободная продажа в РФ\n"
+    "✓ Доставка из Китая, Турции,\n"
+    "   ОАЭ и Израиля\n"
+    "✓ Полностью легально\n\n"
     f"{_DIV}\n"
     "👇 <b>Чем можем помочь?</b>"
 )
@@ -47,13 +48,10 @@ WELCOME_TEXT = (
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     try:
-        # Remove any leftover reply keyboard (e.g. phone share button) silently
-        try:
-            rm = await message.answer("‎", reply_markup=ReplyKeyboardRemove())
-            await rm.delete()
-        except Exception:
-            pass
-        msg = await message.answer(WELCOME_TEXT, reply_markup=service_kb())
+        msg = await message.answer(
+            WELCOME_TEXT,
+            reply_markup=service_kb(),
+        )
         await state.update_data(card_id=msg.message_id)
         await state.set_state(OrderForm.service)
     except Exception as exc:
@@ -77,11 +75,18 @@ async def text_start(message: Message, state: FSMContext) -> None:
 @router.message(Command("help"))
 async def cmd_help(message: Message) -> None:
     await message.answer(
-        "🏢 <b>TE GROUP — Бот логистики</b>\n\n"
-        "▸ /start — Новая заявка\n"
-        "▸ /help — Помощь\n\n"
-        "📲 WhatsApp: +996 501 989 469\n"
-        "🌐 tegroup.cc",
+        f"🏢 <b>TE GROUP</b>\n"
+        f"{_DIV}\n"
+        f"<b>Расчёт доставки и таможни</b>\n\n"
+        f"Бот собирает параметры вашего груза\n"
+        f"и отправляет запрос менеджеру для\n"
+        f"точного расчёта стоимости.\n\n"
+        f"▸ /start — Новая заявка\n"
+        f"▸ /help — Помощь\n\n"
+        f"📞 Россия: +7 952 778 3680\n"
+        f"📲 WhatsApp: +996 501 989 469\n"
+        f"✉️ info@tegroup.cc\n"
+        f"🌐 tegroup.cc",
     )
 
 
@@ -129,22 +134,10 @@ async def expired_callback(cb: CallbackQuery, state: FSMContext) -> None:
 
 @fallback_router.message()
 async def fallback_forward(message: Message, bot: Bot, state: FSMContext) -> None:
-    """Forward any unhandled messages to admins.
-
-    Also handles the case where a user is mid-funnel but the bot restarted
-    and the FSM state is lost — the user's text message won't match any
-    state handler and lands here.
-    """
+    """Forward any unhandled messages to admins."""
     user = message.from_user
     if not user:
         return
-
-    # Remove any stale reply keyboard silently
-    try:
-        rm = await message.answer("‎", reply_markup=ReplyKeyboardRemove())
-        await rm.delete()
-    except Exception:
-        pass
 
     header = (
         f"💬 Сообщение от клиента\n"

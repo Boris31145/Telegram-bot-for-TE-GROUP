@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "fix: restore env vars, session recovery, improve phone input, drop_pending_updates=False"
+git commit -m "fix: remove hourglass flash, shorten divider, update help with RU phone, fix branding"
 git push origin main
 echo.
 echo === Done! ===

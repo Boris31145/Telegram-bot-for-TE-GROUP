@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 # ── Layout constants ─────────────────────────────────────────
-_DIV = "━" * 20
+_DIV = "━" * 16
 TOTAL_CUSTOMS = 5
 TOTAL_DELIVERY = 7
 
@@ -86,10 +86,10 @@ def _card(data: dict, step: int, question: str = "") -> str:
     service = data.get("service", "delivery")
     total = TOTAL_CUSTOMS if service == "customs" else TOTAL_DELIVERY
 
-    if service == "customs":
-        header = "🏢 <b>TE GROUP</b>  ·  🛃 Таможня"
-    else:
-        header = "🏢 <b>TE GROUP</b>  ·  🚚 Доставка"
+        if service == "customs":
+            header = "🏢 <b>TE GROUP</b> · 🛃 Таможня"
+        else:
+            header = "🏢 <b>TE GROUP</b> · 🚚 Доставка"
 
     lines: list[str] = [header, _DIV]
     bar = _bar(step, total)
@@ -329,15 +329,16 @@ def _resolve_volume(raw: str) -> float:
 # ═══════════════════════════════════════════════════════════════
 
 _CUSTOMS_INTRO = (
-    "🏢 <b>TE GROUP</b>  ·  🛃 Таможня\n"
+    "🏢 <b>TE GROUP</b> · 🛃 Таможня\n"
     f"{_DIV}\n\n"
-    "<b>Растаможим ваш груз в Кыргызстане</b>\n\n"
-    "КР — участник ЕАЭС с самыми низкими\n"
-    "таможенными ставками в союзе.\n\n"
-    "Товар <b>свободно продаётся</b> в РФ,\n"
-    "Казахстане, Беларуси.\n\n"
+    "<b>Растаможим ваш груз\n"
+    "в Кыргызстане</b>\n\n"
+    "КР — участник ЕАЭС с самыми\n"
+    "низкими ставками в союзе.\n"
+    "Товар <b>свободно продаётся</b>\n"
+    "в РФ, Казахстане, Беларуси.\n\n"
     f"{_DIV}\n"
-    "📦 <b>Какой товар нужно растаможить?</b>"
+    "📦 <b>Какой товар растаможить?</b>"
 )
 
 
