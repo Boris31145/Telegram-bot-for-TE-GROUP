@@ -2,6 +2,7 @@
 
 The bot starts even if the database is unreachable.
 All CRUD operations gracefully handle pool=None.
+Background retry + periodic health check keep the connection alive.
 """
 
 from __future__ import annotations
@@ -21,6 +22,9 @@ pool: asyncpg.Pool | None = None
 
 _MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
+# How long to wait for pool creation before giving up (seconds)
+_POOL_CREATE_TIMEOUT = 20
+
 
 async def init_db() -> None:
     """Connect to Postgres and run migrations.
@@ -34,8 +38,15 @@ async def init_db() -> None:
         return
 
     try:
-        pool = await asyncpg.create_pool(
-            settings.DATABASE_URL, min_size=1, max_size=10, timeout=15,
+        # Wrap pool creation in asyncio.wait_for to prevent hanging
+        pool = await asyncio.wait_for(
+            asyncpg.create_pool(
+                settings.DATABASE_URL,
+                min_size=1,
+                max_size=10,
+                command_timeout=15,
+            ),
+            timeout=_POOL_CREATE_TIMEOUT,
         )
         await _run_migrations()
         logger.info("Database connected")
@@ -47,18 +58,24 @@ async def init_db() -> None:
 
 async def _retry_connect() -> None:
     global pool
-    for attempt in range(1, 20):
+    for attempt in range(1, 40):
         await asyncio.sleep(15)
         try:
-            pool = await asyncpg.create_pool(
-                settings.DATABASE_URL, min_size=1, max_size=10, timeout=15,
+            pool = await asyncio.wait_for(
+                asyncpg.create_pool(
+                    settings.DATABASE_URL,
+                    min_size=1,
+                    max_size=10,
+                    command_timeout=15,
+                ),
+                timeout=_POOL_CREATE_TIMEOUT,
             )
             await _run_migrations()
             logger.info("Database connected on retry #%d", attempt)
             return
         except Exception as exc:
             logger.warning("DB retry #%d failed: %s", attempt, exc)
-    logger.error("Gave up reconnecting to database after 20 attempts")
+    logger.error("Gave up reconnecting to database after 40 attempts")
 
 
 async def _run_migrations() -> None:
@@ -84,9 +101,13 @@ def _check_pool() -> asyncpg.Pool:
     return pool
 
 
+# ═══════════════════════════════════════════════════════════════
+# CRUD
+# ═══════════════════════════════════════════════════════════════
+
 async def save_lead(data: dict[str, Any]) -> int:
     p = _check_pool()
-    async with p.acquire() as conn:
+    async with p.acquire(timeout=10) as conn:
         row = await conn.fetchrow(
             """
             INSERT INTO leads
@@ -120,14 +141,14 @@ async def save_lead(data: dict[str, Any]) -> int:
 
 async def get_lead(lead_id: int) -> dict[str, Any] | None:
     p = _check_pool()
-    async with p.acquire() as conn:
+    async with p.acquire(timeout=10) as conn:
         row = await conn.fetchrow("SELECT * FROM leads WHERE id = $1", lead_id)
         return dict(row) if row else None
 
 
 async def get_leads(limit: int = 10) -> list[dict[str, Any]]:
     p = _check_pool()
-    async with p.acquire() as conn:
+    async with p.acquire(timeout=10) as conn:
         rows = await conn.fetch(
             "SELECT * FROM leads ORDER BY created_at DESC LIMIT $1", limit,
         )
@@ -136,7 +157,7 @@ async def get_leads(limit: int = 10) -> list[dict[str, Any]]:
 
 async def update_lead_status(lead_id: int, status: str) -> bool:
     p = _check_pool()
-    async with p.acquire() as conn:
+    async with p.acquire(timeout=10) as conn:
         result = await conn.execute(
             "UPDATE leads SET status = $1, updated_at = NOW() WHERE id = $2",
             status, lead_id,
@@ -146,6 +167,6 @@ async def update_lead_status(lead_id: int, status: str) -> bool:
 
 async def export_all_leads() -> list[dict[str, Any]]:
     p = _check_pool()
-    async with p.acquire() as conn:
+    async with p.acquire(timeout=10) as conn:
         rows = await conn.fetch("SELECT * FROM leads ORDER BY created_at DESC")
         return [dict(r) for r in rows]

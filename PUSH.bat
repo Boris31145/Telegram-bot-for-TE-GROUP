@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "fix: critical IndentationError in funnel.py _card() — bot could not start"
+git commit -m "fix: IndentationError crash + add auto-restart, keepalive pinger, DB health check"
 git push origin main
 echo.
 echo === Done! ===
