@@ -60,7 +60,7 @@ logger = logging.getLogger(__name__)
 router = Router()
 
 # ── Layout constants ─────────────────────────────────────────
-_DIV = "━" * 16
+_SEP = "· · ·"
 TOTAL_CUSTOMS = 5
 TOTAL_DELIVERY = 7
 
@@ -87,52 +87,53 @@ def _card(data: dict, step: int, question: str = "") -> str:
     total = TOTAL_CUSTOMS if service == "customs" else TOTAL_DELIVERY
 
     if service == "customs":
-        header = "🏢 <b>TE GROUP</b> · 🛃 Таможня"
+        header = "◈  <b>TE GROUP</b>  ·  🛃 Таможня"
     else:
-        header = "🏢 <b>TE GROUP</b> · 🚚 Доставка"
+        header = "◈  <b>TE GROUP</b>  ·  🚚 Доставка"
 
-    lines: list[str] = [header, _DIV]
+    lines: list[str] = [header]
     bar = _bar(step, total)
     if bar:
         lines.append(bar)
-        lines.append("")
+    lines.append("")
 
     fields: list[str] = []
 
     if service == "customs":
         if data.get("cargo_type"):
-            fields.append(f"📦 {_e(CARGO_LABELS.get(data['cargo_type'], data['cargo_type']))}")
+            fields.append(f"  📦  {_e(CARGO_LABELS.get(data['cargo_type'], data['cargo_type']))}")
         if data.get("country"):
-            fields.append(f"🌍 {_e(COUNTRY_LABELS.get(data['country'], data['country']))}")
+            fields.append(f"  🌍  {_e(COUNTRY_LABELS.get(data['country'], data['country']))}")
         if data.get("invoice_value"):
-            fields.append(f"💰 {_e(INVOICE_LABELS.get(data['invoice_value'], data['invoice_value']))}")
+            fields.append(f"  💰  {_e(INVOICE_LABELS.get(data['invoice_value'], data['invoice_value']))}")
         if data.get("customs_urgency"):
             lbl = CUSTOMS_URGENCY_LABELS.get(data["customs_urgency"], data["customs_urgency"])
-            fields.append(f"⏰ {_e(lbl)}")
+            fields.append(f"  ⏰  {_e(lbl)}")
     else:
         if data.get("country"):
-            fields.append(f"🌍 {_e(COUNTRY_LABELS.get(data['country'], data['country']))}")
+            fields.append(f"  🌍  {_e(COUNTRY_LABELS.get(data['country'], data['country']))}")
         if data.get("city_from"):
-            fields.append(f"📍 {_e(data['city_from'])}")
+            fields.append(f"  📍  {_e(data['city_from'])}")
         if data.get("cargo_type"):
-            fields.append(f"📦 {_e(CARGO_LABELS.get(data['cargo_type'], data['cargo_type']))}")
+            fields.append(f"  📦  {_e(CARGO_LABELS.get(data['cargo_type'], data['cargo_type']))}")
         if data.get("weight_kg"):
-            fields.append(f"⚖️ {_e(WEIGHT_LABELS.get(data['weight_kg'], data['weight_kg']))}")
+            fields.append(f"  ⚖️  {_e(WEIGHT_LABELS.get(data['weight_kg'], data['weight_kg']))}")
         if data.get("volume_m3"):
-            fields.append(f"📐 {_e(VOLUME_LABELS.get(data['volume_m3'], data['volume_m3']))}")
+            fields.append(f"  📐  {_e(VOLUME_LABELS.get(data['volume_m3'], data['volume_m3']))}")
         if data.get("urgency"):
             lbl = URGENCY_LABELS.get(data["urgency"], data["urgency"])
-            fields.append(f"⏰ {_e(lbl)}")
+            fields.append(f"  ⏰  {_e(lbl)}")
             info = DELIVERY_INFO.get(data.get("country", ""), DEFAULT_DELIVERY).get(data["urgency"], "")
             if info:
-                fields.append(f"<i>   └ {_e(info)}</i>")
+                fields.append(f"        <i>{_e(info)}</i>")
 
     if fields:
         lines.extend(fields)
 
     if question:
         lines.append("")
-        lines.append(_DIV)
+        lines.append(f"  {_SEP}")
+        lines.append("")
         lines.append(question)
 
     return "\n".join(lines)
@@ -163,36 +164,36 @@ def _card_id(data: dict, cb: CallbackQuery | None = None) -> int:
 # ═══════════════════════════════════════════════════════════════
 
 async def _notify_admins(bot: Bot, lead_id: int, data: dict, service: str) -> bool:
-    svc = {"customs": "Таможня", "delivery": "Доставка", "question": "Вопрос"}.get(service, service)
+    svc = {"customs": "🛃 Таможня", "delivery": "🚚 Доставка", "question": "💬 Вопрос"}.get(service, service)
     name = data.get("full_name", "")
     uname = data.get("username", "")
     phone = data.get("phone", "")
     country = COUNTRY_LABELS.get(data.get("country", ""), data.get("country", ""))
     comment = data.get("comment", "")
 
-    uname_part = f" (@{uname})" if uname else ""
-    comment_part = f"\nКомментарий: {comment}" if comment else ""
+    uname_part = f"  @{uname}" if uname else ""
+    comment_part = f"\n💬 {comment}" if comment else ""
 
     if service == "customs":
         cargo = CARGO_LABELS.get(data.get("cargo_type", ""), data.get("cargo_type", ""))
         inv = INVOICE_LABELS.get(data.get("invoice_value", ""), data.get("invoice_value", ""))
         urg = CUSTOMS_URGENCY_LABELS.get(data.get("customs_urgency", ""), "")
         text = (
-            f"🆕 ЗАЯВКА #{lead_id} | {svc}\n"
-            f"{'=' * 30}\n"
-            f"Имя: {name}{uname_part}\n"
-            f"Тел: {phone}\n"
-            f"Товар: {cargo}\n"
-            f"Страна: {country}\n"
-            f"Стоимость: {inv}\n"
-            f"Срочность: {urg}"
+            f"🆕  Заявка #{lead_id}  ·  {svc}\n"
+            f"─────────────────\n"
+            f"👤 {name}{uname_part}\n"
+            f"📞 {phone}\n"
+            f"📦 {cargo}\n"
+            f"🌍 {country}\n"
+            f"💰 {inv}\n"
+            f"⏰ {urg}"
             f"{comment_part}"
         )
     elif service == "question":
         text = (
-            f"💬 ВОПРОС #{lead_id}\n"
-            f"{'=' * 30}\n"
-            f"Имя: {name}{uname_part}\n"
+            f"💬  Вопрос #{lead_id}\n"
+            f"─────────────────\n"
+            f"👤 {name}{uname_part}\n"
             f"ID: {data.get('telegram_id', '')}\n"
             f"\n{comment}"
         )
@@ -203,14 +204,14 @@ async def _notify_admins(bot: Bot, lead_id: int, data: dict, service: str) -> bo
         volume = data.get("volume_m3", 0)
         urg = URGENCY_LABELS.get(data.get("urgency", ""), "")
         text = (
-            f"🆕 ЗАЯВКА #{lead_id} | {svc}\n"
-            f"{'=' * 30}\n"
-            f"Имя: {name}{uname_part}\n"
-            f"Тел: {phone}\n"
-            f"Маршрут: {country} → {city}\n"
-            f"Груз: {cargo}\n"
-            f"Вес: {weight} кг | Объём: {volume} м³\n"
-            f"Срочность: {urg}"
+            f"🆕  Заявка #{lead_id}  ·  {svc}\n"
+            f"─────────────────\n"
+            f"👤 {name}{uname_part}\n"
+            f"📞 {phone}\n"
+            f"🌍 {country} → {city}\n"
+            f"📦 {cargo}\n"
+            f"⚖️ {weight} кг  ·  📐 {volume} м³\n"
+            f"⏰ {urg}"
             f"{comment_part}"
         )
 
@@ -269,14 +270,14 @@ async def _finish(msg: Message, state: FSMContext, bot: Bot) -> None:
         try:
             svc_line = "🛃 Таможня · ЕАЭС" if service == "customs" else "🚚 Доставка груза"
             await msg.answer(
-                f"🏢 <b>TE GROUP</b>\n"
-                f"{_DIV}\n\n"
-                f"✅ <b>Заявка #{lead_id} принята</b>\n\n"
-                f"{svc_line}\n\n"
-                f"Менеджер рассчитает стоимость\n"
-                f"и свяжется <b>в течение 1 часа</b>.\n\n"
-                f"{_DIV}\n"
-                f"Спасибо за обращение!",
+                f"◈  <b>TE GROUP</b>\n\n"
+                f"  {_SEP}\n\n"
+                f"✅  <b>Заявка #{lead_id} принята</b>\n\n"
+                f"  {svc_line}\n\n"
+                f"  Менеджер рассчитает стоимость\n"
+                f"  и свяжется <b>в течение 1 часа</b>.\n\n"
+                f"  {_SEP}\n\n"
+                f"  Спасибо за обращение!",
                 reply_markup=after_submit_kb(),
             )
         except Exception:
@@ -288,12 +289,12 @@ async def _finish(msg: Message, state: FSMContext, bot: Bot) -> None:
         # DB save failed but admins were notified
         try:
             await msg.answer(
-                f"🏢 <b>TE GROUP</b>\n"
-                f"{_DIV}\n\n"
-                f"✅ <b>Заявка отправлена менеджеру!</b>\n\n"
-                f"Свяжемся <b>в течение 1 часа</b>.\n\n"
-                f"{_DIV}\n"
-                f"Спасибо за обращение!",
+                f"◈  <b>TE GROUP</b>\n\n"
+                f"  {_SEP}\n\n"
+                f"✅  <b>Заявка отправлена менеджеру</b>\n\n"
+                f"  Свяжемся <b>в течение 1 часа</b>.\n\n"
+                f"  {_SEP}\n\n"
+                f"  Спасибо за обращение!",
                 reply_markup=after_submit_kb(),
             )
         except Exception:
@@ -329,15 +330,15 @@ def _resolve_volume(raw: str) -> float:
 # ═══════════════════════════════════════════════════════════════
 
 _CUSTOMS_INTRO = (
-    "🏢 <b>TE GROUP</b> · 🛃 Таможня\n"
-    f"{_DIV}\n\n"
+    "◈  <b>TE GROUP</b>  ·  🛃 Таможня\n\n"
+    f"  {_SEP}\n\n"
     "<b>Растаможим ваш груз\n"
     "в Кыргызстане</b>\n\n"
-    "КР — участник ЕАЭС с самыми\n"
-    "низкими ставками в союзе.\n"
-    "Товар <b>свободно продаётся</b>\n"
-    "в РФ, Казахстане, Беларуси.\n\n"
-    f"{_DIV}\n"
+    "  КР — участник ЕАЭС с самыми\n"
+    "  низкими ставками в союзе.\n"
+    "  Товар <b>свободно продаётся</b>\n"
+    "  в РФ, Казахстане, Беларуси.\n\n"
+    f"  {_SEP}\n\n"
     "📦 <b>Какой товар растаможить?</b>"
 )
 
@@ -364,8 +365,8 @@ async def pick_service(cb: CallbackQuery, state: FSMContext) -> None:
 
     elif value == "question":
         await cb.message.edit_text(  # type: ignore[union-attr]
-            "🏢 <b>TE GROUP</b>  ·  💬 Вопрос\n"
-            f"{_DIV}\n\n"
+            "◈  <b>TE GROUP</b>  ·  💬 Вопрос\n\n"
+            f"  {_SEP}\n\n"
             "Опишите задачу или задайте вопрос —\n"
             "менеджер ответит <b>в этом чате</b>.",
         )
@@ -411,13 +412,13 @@ async def got_question(message: Message, state: FSMContext, bot: Bot) -> None:
                       user.id if user else "?")
 
     await message.answer(
-        "🏢 <b>TE GROUP</b>\n"
-        f"{_DIV}\n\n"
-        "✅ <b>Вопрос получен!</b>\n\n"
-        "Менеджер ответит в этом чате\n"
-        "в ближайшее время.\n\n"
-        f"{_DIV}\n"
-        "Для оформления заявки — /start",
+        "◈  <b>TE GROUP</b>\n\n"
+        f"  {_SEP}\n\n"
+        "✅  <b>Вопрос получен</b>\n\n"
+        "  Менеджер ответит в этом чате\n"
+        "  в ближайшее время.\n\n"
+        f"  {_SEP}\n\n"
+        "  Для оформления заявки — /start",
     )
     await state.clear()
 

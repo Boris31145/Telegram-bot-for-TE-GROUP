@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "fix: IndentationError crash + add auto-restart, keepalive pinger, DB health check"
+git commit -m "feat: premium message design — replace heavy bars with clean minimal style"
 git push origin main
 echo.
 echo === Done! ===
