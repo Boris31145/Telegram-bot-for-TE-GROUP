@@ -1,4 +1,10 @@
-"""TE GROUP Telegram Bot — entry point."""
+"""TE GROUP Telegram Bot — entry point.
+
+Key design:
+- Bot starts even if the database is unreachable (retry in background).
+- Simple logging (no extra dependencies).
+- Health-check HTTP server for Render.
+"""
 
 from __future__ import annotations
 
@@ -12,7 +18,6 @@ from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import BotCommand
-from pythonjsonlogger import jsonlogger
 
 from bot.config import settings
 from bot.db import close_db, init_db
@@ -22,17 +27,18 @@ from bot.middleware import AntiSpamMiddleware
 
 
 def _setup_logging() -> None:
-    handler = logging.StreamHandler(sys.stdout)
-    fmt = jsonlogger.JsonFormatter(
-        "%(asctime)s %(name)s %(levelname)s %(message)s",
-        datefmt="%Y-%m-%dT%H:%M:%S",
+    fmt = logging.Formatter(
+        "%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
+    handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(fmt)
     logging.root.handlers = [handler]
     logging.root.setLevel(settings.LOG_LEVEL)
 
 
 async def _start_health_server() -> None:
+    """Minimal HTTP server so Render knows the service is alive."""
     from aiohttp import web
 
     async def _health(_r: web.Request) -> web.Response:
@@ -46,6 +52,7 @@ async def _start_health_server() -> None:
     await runner.setup()
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+    return
 
 
 async def main() -> None:
@@ -53,7 +60,11 @@ async def main() -> None:
     logger = logging.getLogger("bot")
     logger.info("Starting TE GROUP Bot")
 
-    await init_db()
+    # Database — non-fatal
+    try:
+        await init_db()
+    except Exception as exc:
+        logger.error("init_db raised: %s — bot will start without DB", exc)
 
     bot = Bot(
         token=settings.BOT_TOKEN,
@@ -68,11 +79,13 @@ async def main() -> None:
     dp = Dispatcher(storage=MemoryStorage())
     dp.message.middleware(AntiSpamMiddleware())
 
+    # Router order matters: common first, then admin, then funnel, fallback last.
     dp.include_router(common.router)
     dp.include_router(admin.router)
     dp.include_router(funnel.router)
-    dp.include_router(fallback_router)  # LAST — catches unhandled messages
+    dp.include_router(fallback_router)
 
+    # Health server for Render
     await _start_health_server()
     logger.info("Health server on :%s", os.environ.get("PORT", "10000"))
 

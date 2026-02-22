@@ -1,6 +1,6 @@
 """Anti-spam middleware: rate-limiting + deduplication.
 
-IMPORTANT: Commands (messages starting with /) always pass through.
+Commands (messages starting with /) and contact shares always pass through.
 """
 
 from __future__ import annotations
@@ -33,11 +33,9 @@ class AntiSpamMiddleware(BaseMiddleware):
         if not isinstance(event, Message) or not event.from_user:
             return await handler(event, data)
 
-        # ALWAYS let commands through — never block /start, /help, etc.
+        # Always let commands and contacts through
         if event.text and event.text.startswith("/"):
             return await handler(event, data)
-
-        # ALWAYS let contact shares through (phone number button)
         if event.contact:
             return await handler(event, data)
 

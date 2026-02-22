@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS leads (
     telegram_id BIGINT NOT NULL,
     username    VARCHAR(255) DEFAULT '',
     full_name   VARCHAR(255) DEFAULT '',
-    country     VARCHAR(100) NOT NULL,
+    country     VARCHAR(100) DEFAULT '',
     city_from   VARCHAR(255) DEFAULT '',
     cargo_type  VARCHAR(100) DEFAULT '',
     weight_kg   NUMERIC(10,2) DEFAULT 0,

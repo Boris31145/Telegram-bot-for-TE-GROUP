@@ -9,8 +9,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     BOT_TOKEN: str
-    DATABASE_URL: str
-    ADMIN_CHAT_ID: str
+    DATABASE_URL: str = ""
+    ADMIN_CHAT_ID: str = ""
     LOG_LEVEL: str = "INFO"
 
     # Anti-spam

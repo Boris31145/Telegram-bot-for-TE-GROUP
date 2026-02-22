@@ -1,7 +1,12 @@
-"""Database layer — asyncpg pool + CRUD for leads."""
+"""Database layer — asyncpg pool + CRUD for leads.
+
+The bot starts even if the database is unreachable.
+All CRUD operations gracefully handle pool=None.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
@@ -18,13 +23,52 @@ _MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
 
 async def init_db() -> None:
+    """Connect to Postgres and run migrations.
+
+    If the connection fails the bot still starts — a background task
+    will retry every 15 seconds.
+    """
     global pool
-    pool = await asyncpg.create_pool(settings.DATABASE_URL, min_size=2, max_size=10)
+    if not settings.DATABASE_URL:
+        logger.warning("DATABASE_URL is empty — running without database")
+        return
+
+    try:
+        pool = await asyncpg.create_pool(
+            settings.DATABASE_URL, min_size=1, max_size=10, timeout=15,
+        )
+        await _run_migrations()
+        logger.info("Database connected")
+    except Exception as exc:
+        logger.error("Database connection failed: %s — will retry in background", exc)
+        pool = None
+        asyncio.create_task(_retry_connect())
+
+
+async def _retry_connect() -> None:
+    global pool
+    for attempt in range(1, 20):
+        await asyncio.sleep(15)
+        try:
+            pool = await asyncpg.create_pool(
+                settings.DATABASE_URL, min_size=1, max_size=10, timeout=15,
+            )
+            await _run_migrations()
+            logger.info("Database connected on retry #%d", attempt)
+            return
+        except Exception as exc:
+            logger.warning("DB retry #%d failed: %s", attempt, exc)
+    logger.error("Gave up reconnecting to database after 20 attempts")
+
+
+async def _run_migrations() -> None:
+    if not pool:
+        return
     migration_files = sorted(_MIGRATIONS_DIR.glob("*.sql"))
     async with pool.acquire() as conn:
         for mf in migration_files:
             await conn.execute(mf.read_text(encoding="utf-8"))
-    logger.info("DB ready, %d migration(s)", len(migration_files))
+    logger.info("Migrations applied: %d file(s)", len(migration_files))
 
 
 async def close_db() -> None:
@@ -34,8 +78,15 @@ async def close_db() -> None:
         pool = None
 
 
+def _check_pool() -> asyncpg.Pool:
+    if pool is None:
+        raise RuntimeError("Database is not available")
+    return pool
+
+
 async def save_lead(data: dict[str, Any]) -> int:
-    async with pool.acquire() as conn:  # type: ignore[union-attr]
+    p = _check_pool()
+    async with p.acquire() as conn:
         row = await conn.fetchrow(
             """
             INSERT INTO leads
@@ -68,21 +119,24 @@ async def save_lead(data: dict[str, Any]) -> int:
 
 
 async def get_lead(lead_id: int) -> dict[str, Any] | None:
-    async with pool.acquire() as conn:  # type: ignore[union-attr]
+    p = _check_pool()
+    async with p.acquire() as conn:
         row = await conn.fetchrow("SELECT * FROM leads WHERE id = $1", lead_id)
         return dict(row) if row else None
 
 
 async def get_leads(limit: int = 10) -> list[dict[str, Any]]:
-    async with pool.acquire() as conn:  # type: ignore[union-attr]
+    p = _check_pool()
+    async with p.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT * FROM leads ORDER BY created_at DESC LIMIT $1", limit
+            "SELECT * FROM leads ORDER BY created_at DESC LIMIT $1", limit,
         )
         return [dict(r) for r in rows]
 
 
 async def update_lead_status(lead_id: int, status: str) -> bool:
-    async with pool.acquire() as conn:  # type: ignore[union-attr]
+    p = _check_pool()
+    async with p.acquire() as conn:
         result = await conn.execute(
             "UPDATE leads SET status = $1, updated_at = NOW() WHERE id = $2",
             status, lead_id,
@@ -91,6 +145,7 @@ async def update_lead_status(lead_id: int, status: str) -> bool:
 
 
 async def export_all_leads() -> list[dict[str, Any]]:
-    async with pool.acquire() as conn:  # type: ignore[union-attr]
+    p = _check_pool()
+    async with p.acquire() as conn:
         rows = await conn.fetch("SELECT * FROM leads ORDER BY created_at DESC")
         return [dict(r) for r in rows]

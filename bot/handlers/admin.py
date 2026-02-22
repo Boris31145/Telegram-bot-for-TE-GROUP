@@ -1,10 +1,10 @@
 """
 Admin commands:
 /leads [N]          — last N leads
-/lead <id>          — lead card
+/lead <id>          — lead details
 /status <id> STATUS — change status
 /export             — CSV dump
-/test               — test notification to admin group
+/test               — test admin notification
 """
 
 from __future__ import annotations
@@ -37,7 +37,11 @@ async def cmd_leads(message: Message) -> None:
         return
     args = (message.text or "").split()
     limit = int(args[1]) if len(args) > 1 and args[1].isdigit() else 10
-    leads = await get_leads(limit)
+    try:
+        leads = await get_leads(limit)
+    except Exception:
+        await message.answer("⚠️ База данных недоступна.")
+        return
     if not leads:
         await message.answer("📭 Лидов пока нет.")
         return
@@ -47,7 +51,7 @@ async def cmd_leads(message: Message) -> None:
         date = ld["created_at"].strftime("%d.%m %H:%M")
         lines.append(
             f"{emoji} <b>#{ld['id']}</b> | {ld.get('country', '')} | "
-            f"{ld['status']} | {date}"
+            f"{ld['status']} | {date}",
         )
     await message.answer("\n".join(lines))
 
@@ -58,9 +62,13 @@ async def cmd_lead(message: Message) -> None:
         return
     args = (message.text or "").split()
     if len(args) < 2 or not args[1].isdigit():
-        await message.answer("⚠️ Использование: <code>/lead 123</code>")
+        await message.answer("Использование: <code>/lead 123</code>")
         return
-    lead = await get_lead(int(args[1]))
+    try:
+        lead = await get_lead(int(args[1]))
+    except Exception:
+        await message.answer("⚠️ База данных недоступна.")
+        return
     if not lead:
         await message.answer("❌ Лид не найден.")
         return
@@ -70,13 +78,13 @@ async def cmd_lead(message: Message) -> None:
         f"📋 <b>Лид #{lead['id']}</b>\n\n"
         f"👤 {lead['full_name']}{uname}\n"
         f"📱 {lead['phone']}\n"
-        f"🏷 Услуга: {lead.get('service_type', 'delivery')}\n"
+        f"🏷 {lead.get('service_type', 'delivery')}\n"
         f"🌍 {lead.get('country', '')} → {lead.get('city_from', '')}\n"
         f"📦 {lead.get('cargo_type', '')}\n"
         f"⚖️ {lead.get('weight_kg', 0)} кг | 📐 {lead.get('volume_m3', 0)} м³\n"
-        f"📊 Статус: <b>{lead['status']}</b>\n"
+        f"📊 <b>{lead['status']}</b>\n"
         f"📅 {lead['created_at'].strftime('%d.%m.%Y %H:%M')}"
-        f"{comment}"
+        f"{comment}",
     )
 
 
@@ -87,19 +95,23 @@ async def cmd_status(message: Message) -> None:
     args = (message.text or "").split()
     if len(args) < 3:
         await message.answer(
-            "⚠️ <code>/status 123 IN_PROGRESS</code>\n"
-            "Статусы: NEW, IN_PROGRESS, WON, LOST"
+            "<code>/status 123 IN_PROGRESS</code>\n"
+            "Статусы: NEW, IN_PROGRESS, WON, LOST",
         )
         return
     if not args[1].isdigit():
-        await message.answer("⚠️ ID = число.")
+        await message.answer("ID должен быть числом.")
         return
     lead_id = int(args[1])
     status = args[2].upper()
     if status not in VALID_STATUSES:
-        await message.answer(f"⚠️ Допустимые: {', '.join(sorted(VALID_STATUSES))}")
+        await message.answer(f"Допустимые: {', '.join(sorted(VALID_STATUSES))}")
         return
-    ok = await update_lead_status(lead_id, status)
+    try:
+        ok = await update_lead_status(lead_id, status)
+    except Exception:
+        await message.answer("⚠️ База данных недоступна.")
+        return
     if ok:
         await message.answer(f"{STATUS_EMOJI.get(status, '')} #{lead_id} → <b>{status}</b>")
     else:
@@ -108,25 +120,24 @@ async def cmd_status(message: Message) -> None:
 
 @router.message(Command("test"))
 async def cmd_test(message: Message, bot: Bot) -> None:
-    """Test notification to admin group — anyone can run this."""
     results: list[str] = []
     for chat_id in settings.admin_ids:
         try:
             await bot.send_message(
                 chat_id,
-                f"🔔 Тест уведомлений TE GROUP\n"
+                f"🔔 Тест TE GROUP бота\n"
                 f"От: {message.from_user.full_name if message.from_user else '?'}\n"
-                f"Если видишь это — всё работает ✅",
-                parse_mode=None,  # plain text, guaranteed safe
+                f"Статус: работает ✅",
+                parse_mode=None,
             )
-            results.append(f"✅ {chat_id} — OK")
+            results.append(f"✅ {chat_id}")
         except Exception as exc:
             results.append(f"❌ {chat_id} — {exc}")
 
     await message.answer(
         "<b>Тест уведомлений:</b>\n\n"
         + "\n".join(results)
-        + f"\n\n<i>ADMIN_CHAT_ID: <code>{settings.ADMIN_CHAT_ID}</code></i>"
+        + f"\n\n<i>ADMIN_CHAT_ID: <code>{settings.ADMIN_CHAT_ID}</code></i>",
     )
 
 
@@ -134,7 +145,11 @@ async def cmd_test(message: Message, bot: Bot) -> None:
 async def cmd_export(message: Message) -> None:
     if not _is_admin(message.from_user.id):  # type: ignore[union-attr]
         return
-    leads = await export_all_leads()
+    try:
+        leads = await export_all_leads()
+    except Exception:
+        await message.answer("⚠️ База данных недоступна.")
+        return
     if not leads:
         await message.answer("📭 Нет данных.")
         return

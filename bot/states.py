@@ -19,8 +19,10 @@ class OrderForm(StatesGroup):
     weight = State()
     volume = State()
     urgency = State()
-    incoterms = State()
 
-    # Shared
+    # Shared final steps
     phone = State()
     comment = State()
+
+    # Free question
+    free_question = State()
