@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "fix: robust funnel (try/except all edits), correct user identity, premium admin notifications"
+git commit -m "fix: customs urgency missing in admin notification (wrong data key)"
 git push origin main
 echo.
 echo === Done! ===

@@ -200,7 +200,9 @@ async def _notify_admins(bot: Bot, lead_id: int, data: dict, service: str) -> bo
         cargo = _e(CARGO_LABELS.get(data.get("cargo_type", ""), data.get("cargo_type", "")))
         country = _e(COUNTRY_LABELS.get(data.get("country", ""), data.get("country", "")))
         inv = _e(INVOICE_LABELS.get(data.get("invoice_value", ""), data.get("invoice_value", "")))
-        urg = _e(CUSTOMS_URGENCY_LABELS.get(data.get("customs_urgency", ""), ""))
+        # urgency is stored as "urgency" in lead_data (merged from customs_urgency)
+        raw_urg = data.get("customs_urgency", "") or data.get("urgency", "")
+        urg = _e(CUSTOMS_URGENCY_LABELS.get(raw_urg, raw_urg))
 
         lines.append("")
         if country:
