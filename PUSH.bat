@@ -6,7 +6,7 @@ echo.
 git add -A
 git status
 echo.
-git commit -m "fix: admin notifications — premium design, action buttons, skip empty fields, handle lead#0"
+git commit -m "fix: admin notifications — correct user identity, premium design, action buttons, no empty fields"
 git push origin main
 echo.
 echo === Done! ===

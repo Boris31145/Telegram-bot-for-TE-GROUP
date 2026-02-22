@@ -49,11 +49,18 @@ WELCOME_TEXT = (
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     try:
+        # Preserve real user identity (cb.message.from_user would be the bot)
+        user = message.from_user
         msg = await message.answer(
             WELCOME_TEXT,
             reply_markup=service_kb(),
         )
-        await state.update_data(card_id=msg.message_id)
+        await state.update_data(
+            card_id=msg.message_id,
+            _uid=user.id if user else 0,
+            _uname=getattr(user, "username", "") or "",
+            _ufull=getattr(user, "full_name", "") or "",
+        )
         await state.set_state(OrderForm.service)
     except Exception as exc:
         logger.error("/start failed: %s", exc)
@@ -140,18 +147,17 @@ async def fallback_forward(message: Message, bot: Bot, state: FSMContext) -> Non
     if not user:
         return
 
-    uname = f"  @{user.username}" if user.username else ""
+    uname = f"  ·  @{user.username}" if user.username else ""
     header = (
-        f"💬 Сообщение от клиента\n"
-        f"─────────────────\n"
-        f"{user.full_name or 'Без имени'}{uname}\n"
-        f"ID: {user.id}"
+        f"💬  <b>Сообщение от клиента</b>\n\n"
+        f"👤  {user.full_name or 'Без имени'}{uname}\n"
+        f"🆔  <code>{user.id}</code>"
     )
 
     forwarded = False
     for admin_id in settings.admin_ids:
         try:
-            await bot.send_message(admin_id, header, parse_mode=None)
+            await bot.send_message(admin_id, header)
             await message.forward(admin_id)
             forwarded = True
         except Exception as exc:

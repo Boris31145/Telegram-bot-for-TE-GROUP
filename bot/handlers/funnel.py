@@ -273,10 +273,15 @@ async def _finish(msg: Message, state: FSMContext, bot: Bot) -> None:
     user = msg.from_user
     service = data.get("service", "delivery")
 
+    # Use stored identity (from /start) — cb.message.from_user is the bot itself
+    real_uid = data.get("_uid") or (user.id if user else 0)
+    real_uname = data.get("_uname") or getattr(user, "username", "") or ""
+    real_full = data.get("_ufull") or getattr(user, "full_name", "") or ""
+
     lead_data = {
-        "telegram_id": user.id if user else 0,
-        "username": getattr(user, "username", "") or "",
-        "full_name": getattr(user, "full_name", "") or "",
+        "telegram_id": real_uid,
+        "username": real_uname,
+        "full_name": real_full,
         "service_type": service,
         "country": data.get("country", ""),
         "city_from": data.get("city_from", ""),
@@ -425,11 +430,18 @@ async def got_question(message: Message, state: FSMContext, bot: Bot) -> None:
         await message.answer("Напишите чуть подробнее.")
         return
 
+    data = await state.get_data()
     user = message.from_user
+
+    # Use stored identity from /start
+    real_uid = data.get("_uid") or (user.id if user else 0)
+    real_uname = data.get("_uname") or getattr(user, "username", "") or ""
+    real_full = data.get("_ufull") or getattr(user, "full_name", "") or ""
+
     lead_data = {
-        "telegram_id": user.id if user else 0,
-        "username": getattr(user, "username", "") or "",
-        "full_name": getattr(user, "full_name", "") or "",
+        "telegram_id": real_uid,
+        "username": real_uname,
+        "full_name": real_full,
         "service_type": "question",
         "country": "", "city_from": "", "cargo_type": "",
         "weight_kg": 0, "volume_m3": 0,
