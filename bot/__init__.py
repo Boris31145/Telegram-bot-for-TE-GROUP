@@ -1,1 +1,1 @@
-# T.E. Group Telegram Bot
+# TE GROUP Telegram Bot

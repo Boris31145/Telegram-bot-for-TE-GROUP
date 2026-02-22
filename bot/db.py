@@ -1,4 +1,4 @@
-"""Database layer — asyncpg connection pool + CRUD for leads."""
+"""Database layer — asyncpg pool + CRUD for leads."""
 
 from __future__ import annotations
 
@@ -17,21 +17,14 @@ pool: asyncpg.Pool | None = None
 _MIGRATIONS_DIR = Path(__file__).resolve().parent.parent / "migrations"
 
 
-# ── Lifecycle ────────────────────────────────────────────────────────
-
 async def init_db() -> None:
-    """Create the connection pool and run all migrations in order."""
     global pool
-    pool = await asyncpg.create_pool(
-        settings.DATABASE_URL,
-        min_size=2,
-        max_size=10,
-    )
+    pool = await asyncpg.create_pool(settings.DATABASE_URL, min_size=2, max_size=10)
     migration_files = sorted(_MIGRATIONS_DIR.glob("*.sql"))
     async with pool.acquire() as conn:
         for mf in migration_files:
             await conn.execute(mf.read_text(encoding="utf-8"))
-    logger.info("Database initialised, %d migration(s) applied", len(migration_files))
+    logger.info("DB ready, %d migration(s)", len(migration_files))
 
 
 async def close_db() -> None:
@@ -39,13 +32,9 @@ async def close_db() -> None:
     if pool:
         await pool.close()
         pool = None
-        logger.info("Database connection closed")
 
-
-# ── CRUD ─────────────────────────────────────────────────────────────
 
 async def save_lead(data: dict[str, Any]) -> int:
-    """Insert a new lead and return its ID. Works for both service types."""
     async with pool.acquire() as conn:  # type: ignore[union-attr]
         row = await conn.fetchrow(
             """
@@ -96,8 +85,7 @@ async def update_lead_status(lead_id: int, status: str) -> bool:
     async with pool.acquire() as conn:  # type: ignore[union-attr]
         result = await conn.execute(
             "UPDATE leads SET status = $1, updated_at = NOW() WHERE id = $2",
-            status,
-            lead_id,
+            status, lead_id,
         )
         return result == "UPDATE 1"
 

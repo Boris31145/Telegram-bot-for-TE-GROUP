@@ -1,4 +1,4 @@
-"""Common handlers: /help, error handler."""
+"""Common handlers: /help + global error handler."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ router = Router()
 async def cmd_help(message: Message) -> None:
     await message.answer(
         "ℹ️ <b>TE GROUP — Бот логистики</b>\n\n"
-        "🔹 /start — Новая заявка на доставку\n"
+        "🔹 /start — Новая заявка\n"
         "🔹 /help  — Помощь\n\n"
         "По вопросам: <b>info@tegroup.cc</b>\n"
         "Сайт: tegroup.cc"
