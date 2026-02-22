@@ -47,8 +47,12 @@ WELCOME_TEXT = (
 async def cmd_start(message: Message, state: FSMContext) -> None:
     await state.clear()
     try:
-        # Remove any leftover reply keyboard (e.g. phone share button)
-        await message.answer("⏳", reply_markup=ReplyKeyboardRemove())
+        # Remove any leftover reply keyboard (e.g. phone share button) silently
+        try:
+            rm = await message.answer("‎", reply_markup=ReplyKeyboardRemove())
+            await rm.delete()
+        except Exception:
+            pass
         msg = await message.answer(WELCOME_TEXT, reply_markup=service_kb())
         await state.update_data(card_id=msg.message_id)
         await state.set_state(OrderForm.service)
@@ -135,9 +139,10 @@ async def fallback_forward(message: Message, bot: Bot, state: FSMContext) -> Non
     if not user:
         return
 
-    # Remove any stale reply keyboard
+    # Remove any stale reply keyboard silently
     try:
-        await message.answer("⏳", reply_markup=ReplyKeyboardRemove())
+        rm = await message.answer("‎", reply_markup=ReplyKeyboardRemove())
+        await rm.delete()
     except Exception:
         pass
 
