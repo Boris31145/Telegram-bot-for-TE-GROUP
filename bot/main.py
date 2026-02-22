@@ -17,6 +17,7 @@ from pythonjsonlogger import jsonlogger
 from bot.config import settings
 from bot.db import close_db, init_db
 from bot.handlers import admin, common, funnel
+from bot.handlers.common import fallback_router
 from bot.middleware import AntiSpamMiddleware
 
 
@@ -70,6 +71,7 @@ async def main() -> None:
     dp.include_router(common.router)
     dp.include_router(admin.router)
     dp.include_router(funnel.router)
+    dp.include_router(fallback_router)  # LAST — catches unhandled messages
 
     await _start_health_server()
     logger.info("Health server on :%s", os.environ.get("PORT", "10000"))
