@@ -133,8 +133,14 @@ async def expired_callback(cb: CallbackQuery, state: FSMContext) -> None:
         msg = await cb.message.answer(  # type: ignore[union-attr]
             WELCOME_TEXT, reply_markup=service_kb(),
         )
+        user = cb.from_user
         await state.clear()
-        await state.update_data(card_id=msg.message_id)
+        await state.update_data(
+            card_id=msg.message_id,
+            _uid=user.id if user else 0,
+            _uname=getattr(user, "username", "") or "",
+            _ufull=getattr(user, "full_name", "") or "",
+        )
         await state.set_state(OrderForm.service)
     except Exception as exc:
         logger.error("Recovery after expired callback failed: %s", exc)

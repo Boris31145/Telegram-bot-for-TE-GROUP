@@ -393,27 +393,36 @@ async def pick_service(cb: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(service=value)
 
     if value == "customs":
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _CUSTOMS_INTRO,
-            reply_markup=with_back(cargo_kb(), "back:service"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _CUSTOMS_INTRO,
+                reply_markup=with_back(cargo_kb(), "back:service"),
+            )
+        except Exception as exc:
+            logger.warning("pick_service customs edit failed: %s", exc)
         await state.set_state(OrderForm.customs_cargo)
 
     elif value == "delivery":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 0, "🌍 <b>Страна отправления?</b>"),
-            reply_markup=with_back(country_kb(), "back:service"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 0, "🌍 <b>Страна отправления?</b>"),
+                reply_markup=with_back(country_kb(), "back:service"),
+            )
+        except Exception as exc:
+            logger.warning("pick_service delivery edit failed: %s", exc)
         await state.set_state(OrderForm.country)
 
     elif value == "question":
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            "◈  <b>TE GROUP</b>  ·  💬 Вопрос\n\n"
-            f"  {_SEP}\n\n"
-            "Опишите задачу или задайте вопрос —\n"
-            "менеджер ответит <b>в этом чате</b>.",
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                "◈  <b>TE GROUP</b>  ·  💬 Вопрос\n\n"
+                f"  {_SEP}\n\n"
+                "Опишите задачу или задайте вопрос —\n"
+                "менеджер ответит <b>в этом чате</b>.",
+            )
+        except Exception as exc:
+            logger.warning("pick_service question edit failed: %s", exc)
         await state.set_state(OrderForm.free_question)
 
     await cb.answer()
@@ -484,10 +493,13 @@ async def got_question(message: Message, state: FSMContext, bot: Bot) -> None:
 async def c_cargo(cb: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(cargo_type=(cb.data or "").split(":")[1])
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 1, "🌍 <b>Откуда отправляется товар?</b>"),
-        reply_markup=with_back(country_kb(), "back:c_cargo_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 1, "🌍 <b>Откуда отправляется товар?</b>"),
+            reply_markup=with_back(country_kb(), "back:c_cargo_reset"),
+        )
+    except Exception as exc:
+        logger.warning("c_cargo edit failed: %s", exc)
     await state.set_state(OrderForm.customs_country)
     await cb.answer()
 
@@ -499,17 +511,23 @@ async def c_country(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     value = (cb.data or "").split(":")[1]
     if value == "other":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 1, "🌍 <b>Введите название страны:</b>"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 1, "🌍 <b>Введите название страны:</b>"),
+            )
+        except Exception:
+            pass
         await cb.answer()
         return
     await state.update_data(country=value)
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 2, "💰 <b>Примерная стоимость партии?</b>"),
-        reply_markup=with_back(invoice_kb(), "back:c_country_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 2, "💰 <b>Примерная стоимость партии?</b>"),
+            reply_markup=with_back(invoice_kb(), "back:c_country_reset"),
+        )
+    except Exception as exc:
+        logger.warning("c_country edit failed: %s", exc)
     await state.set_state(OrderForm.invoice_value)
     await cb.answer()
 
@@ -539,18 +557,24 @@ async def c_invoice(cb: CallbackQuery, state: FSMContext) -> None:
     value = (cb.data or "").split(":")[1]
     if value == "__custom__":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 2, "💰 <b>Введите сумму в USD:</b>"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 2, "💰 <b>Введите сумму в USD:</b>"),
+            )
+        except Exception:
+            pass
         await cb.answer()
         return
     num = INVOICE_TO_FLOAT.get(value, 0)
     await state.update_data(invoice_value=value, invoice_value_num=num)
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 3, "⏰ <b>Насколько срочно?</b>"),
-        reply_markup=with_back(customs_urgency_kb(), "back:c_invoice_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 3, "⏰ <b>Насколько срочно?</b>"),
+            reply_markup=with_back(customs_urgency_kb(), "back:c_invoice_reset"),
+        )
+    except Exception as exc:
+        logger.warning("c_invoice edit failed: %s", exc)
     await state.set_state(OrderForm.customs_urgency)
     await cb.answer()
 
@@ -583,18 +607,22 @@ async def c_urgency(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     await state.update_data(customs_urgency=value)
     data = await state.get_data()
     mid = _card_id(data, cb)
-    # Edit card → show phone prompt
-    new_id = await _edit(
-        bot, cb.message.chat.id, mid,  # type: ignore[union-attr]
-        _card(data, 4, "📱 <b>Номер телефона для связи:</b>"),
-    )
-    # Send reply keyboard for phone sharing
-    await bot.send_message(
-        cb.message.chat.id,  # type: ignore[union-attr]
-        "Нажмите кнопку или введите номер вручную 👇",
-        reply_markup=phone_kb(),
-    )
-    await state.update_data(card_id=new_id)
+    try:
+        new_id = await _edit(
+            bot, cb.message.chat.id, mid,  # type: ignore[union-attr]
+            _card(data, 4, "📱 <b>Номер телефона для связи:</b>"),
+        )
+        await state.update_data(card_id=new_id)
+    except Exception as exc:
+        logger.warning("c_urgency edit failed: %s", exc)
+    try:
+        await bot.send_message(
+            cb.message.chat.id,  # type: ignore[union-attr]
+            "Нажмите кнопку или введите номер вручную 👇",
+            reply_markup=phone_kb(),
+        )
+    except Exception as exc:
+        logger.warning("c_urgency phone_kb failed: %s", exc)
     await state.set_state(OrderForm.phone)
     await cb.answer()
 
@@ -610,17 +638,23 @@ async def d_country(cb: CallbackQuery, state: FSMContext) -> None:
     value = (cb.data or "").split(":")[1]
     if value == "other":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 0, "🌍 <b>Введите название страны:</b>"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 0, "🌍 <b>Введите название страны:</b>"),
+            )
+        except Exception:
+            pass
         await cb.answer()
         return
     await state.update_data(country=value)
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 1, "📍 <b>Город отправления?</b>"),
-        reply_markup=with_back(city_kb(value), "back:d_country_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 1, "📍 <b>Город отправления?</b>"),
+            reply_markup=with_back(city_kb(value), "back:d_country_reset"),
+        )
+    except Exception as exc:
+        logger.warning("d_country edit failed: %s", exc)
     await state.set_state(OrderForm.city)
     await cb.answer()
 
@@ -654,18 +688,24 @@ async def d_city(cb: CallbackQuery, state: FSMContext) -> None:
     data = await state.get_data()
 
     if city_name == "__custom__":
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 1, "📍 <b>Введите название города:</b>"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 1, "📍 <b>Введите название города:</b>"),
+            )
+        except Exception:
+            pass
         await cb.answer()
         return
 
     await state.update_data(city_from=city_name)
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 2, "📦 <b>Тип груза?</b>"),
-        reply_markup=with_back(cargo_kb(), "back:d_city_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 2, "📦 <b>Тип груза?</b>"),
+            reply_markup=with_back(cargo_kb(), "back:d_city_reset"),
+        )
+    except Exception as exc:
+        logger.warning("d_city edit failed: %s", exc)
     await state.set_state(OrderForm.cargo_type)
     await cb.answer()
 
@@ -694,10 +734,13 @@ async def d_city_text(message: Message, state: FSMContext, bot: Bot) -> None:
 async def d_cargo(cb: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(cargo_type=(cb.data or "").split(":")[1])
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 3, "⚖️ <b>Примерный вес?</b>"),
-        reply_markup=with_back(weight_kb(), "back:d_cargo_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 3, "⚖️ <b>Примерный вес?</b>"),
+            reply_markup=with_back(weight_kb(), "back:d_cargo_reset"),
+        )
+    except Exception as exc:
+        logger.warning("d_cargo edit failed: %s", exc)
     await state.set_state(OrderForm.weight)
     await cb.answer()
 
@@ -709,17 +752,23 @@ async def d_weight(cb: CallbackQuery, state: FSMContext) -> None:
     value = (cb.data or "").split(":")[1]
     if value == "__custom__":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 3, "⚖️ <b>Введите вес в кг:</b>"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 3, "⚖️ <b>Введите вес в кг:</b>"),
+            )
+        except Exception:
+            pass
         await cb.answer()
         return
     await state.update_data(weight_kg=value)
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 4, "📐 <b>Примерный объём?</b>"),
-        reply_markup=with_back(volume_kb(), "back:d_weight_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 4, "📐 <b>Примерный объём?</b>"),
+            reply_markup=with_back(volume_kb(), "back:d_weight_reset"),
+        )
+    except Exception as exc:
+        logger.warning("d_weight edit failed: %s", exc)
     await state.set_state(OrderForm.volume)
     await cb.answer()
 
@@ -751,17 +800,23 @@ async def d_volume(cb: CallbackQuery, state: FSMContext) -> None:
     value = (cb.data or "").split(":")[1]
     if value == "__custom__":
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 4, "📐 <b>Введите объём в м³:</b>"),
-        )
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 4, "📐 <b>Введите объём в м³:</b>"),
+            )
+        except Exception:
+            pass
         await cb.answer()
         return
     await state.update_data(volume_m3=value)
     data = await state.get_data()
-    await cb.message.edit_text(  # type: ignore[union-attr]
-        _card(data, 5, "⏰ <b>Насколько срочно?</b>"),
-        reply_markup=with_back(urgency_kb(), "back:d_volume_reset"),
-    )
+    try:
+        await cb.message.edit_text(  # type: ignore[union-attr]
+            _card(data, 5, "⏰ <b>Насколько срочно?</b>"),
+            reply_markup=with_back(urgency_kb(), "back:d_volume_reset"),
+        )
+    except Exception as exc:
+        logger.warning("d_volume edit failed: %s", exc)
     await state.set_state(OrderForm.urgency)
     await cb.answer()
 
@@ -794,16 +849,22 @@ async def d_urgency(cb: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     await state.update_data(urgency=value)
     data = await state.get_data()
     mid = _card_id(data, cb)
-    new_id = await _edit(
-        bot, cb.message.chat.id, mid,  # type: ignore[union-attr]
-        _card(data, 6, "📱 <b>Номер телефона для связи:</b>"),
-    )
-    await bot.send_message(
-        cb.message.chat.id,  # type: ignore[union-attr]
-        "Нажмите кнопку или введите номер вручную 👇",
-        reply_markup=phone_kb(),
-    )
-    await state.update_data(card_id=new_id)
+    try:
+        new_id = await _edit(
+            bot, cb.message.chat.id, mid,  # type: ignore[union-attr]
+            _card(data, 6, "📱 <b>Номер телефона для связи:</b>"),
+        )
+        await state.update_data(card_id=new_id)
+    except Exception as exc:
+        logger.warning("d_urgency edit failed: %s", exc)
+    try:
+        await bot.send_message(
+            cb.message.chat.id,  # type: ignore[union-attr]
+            "Нажмите кнопку или введите номер вручную 👇",
+            reply_markup=phone_kb(),
+        )
+    except Exception as exc:
+        logger.warning("d_urgency phone_kb failed: %s", exc)
     await state.set_state(OrderForm.phone)
     await cb.answer()
 
@@ -817,25 +878,23 @@ async def got_phone_contact(message: Message, state: FSMContext) -> None:
     phone = message.contact.phone_number  # type: ignore[union-attr]
     await state.update_data(phone=phone)
     try:
-        # Remove reply keyboard
         await message.answer("✅ Принято!", reply_markup=ReplyKeyboardRemove())
-        # Comment prompt
+    except Exception:
+        pass
+    try:
         await message.answer(
             "💬 <b>Комментарий к заявке?</b>\n\n"
             "<i>Напишите текст или нажмите «Пропустить»</i>",
             reply_markup=skip_comment_kb(),
         )
-        await state.set_state(OrderForm.comment)
     except Exception as exc:
-        logger.error("got_phone_contact error: %s", exc)
-        await message.answer("⚠️ Ошибка. Попробуйте /start")
-        await state.clear()
+        logger.error("got_phone_contact comment prompt failed: %s", exc)
+    await state.set_state(OrderForm.comment)
 
 
 @router.message(OrderForm.phone)
 async def got_phone_text(message: Message, state: FSMContext) -> None:
     phone = (message.text or "").strip()
-    # Accept anything that looks like a phone number (digits, +, spaces, dashes, parens)
     clean = phone.replace(" ", "").replace("-", "").replace("(", "").replace(")", "")
     if len(clean) < 6 or not any(c.isdigit() for c in clean):
         await message.answer(
@@ -846,16 +905,17 @@ async def got_phone_text(message: Message, state: FSMContext) -> None:
     await state.update_data(phone=phone)
     try:
         await message.answer("✅ Принято!", reply_markup=ReplyKeyboardRemove())
+    except Exception:
+        pass
+    try:
         await message.answer(
             "💬 <b>Комментарий к заявке?</b>\n\n"
             "<i>Напишите текст или нажмите «Пропустить»</i>",
             reply_markup=skip_comment_kb(),
         )
-        await state.set_state(OrderForm.comment)
     except Exception as exc:
-        logger.error("got_phone_text error: %s", exc)
-        await message.answer("⚠️ Ошибка. Попробуйте /start")
-        await state.clear()
+        logger.error("got_phone_text comment prompt failed: %s", exc)
+    await state.set_state(OrderForm.comment)
 
 
 @router.callback_query(OrderForm.comment, F.data == "skip_comment")
@@ -880,97 +940,127 @@ async def got_comment(message: Message, state: FSMContext, bot: Bot) -> None:
 async def handle_back(cb: CallbackQuery, state: FSMContext) -> None:
     target = (cb.data or "").split(":", 1)[1]
     data = await state.get_data()
+    new_state = None
 
     # ── Back to welcome ──────────────────────────────────────
     if target == "service":
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            WELCOME_TEXT, reply_markup=service_kb(),
-        )
-        await state.set_state(OrderForm.service)
+        try:
+            await cb.message.edit_text(WELCOME_TEXT, reply_markup=service_kb())  # type: ignore[union-attr]
+        except Exception as exc:
+            logger.warning("back:service edit failed: %s", exc)
+        new_state = OrderForm.service
 
     # ── CUSTOMS back ─────────────────────────────────────────
     elif target == "c_cargo_reset":
         await state.update_data(cargo_type="")
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _CUSTOMS_INTRO,
-            reply_markup=with_back(cargo_kb(), "back:service"),
-        )
-        await state.set_state(OrderForm.customs_cargo)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _CUSTOMS_INTRO, reply_markup=with_back(cargo_kb(), "back:service"),
+            )
+        except Exception as exc:
+            logger.warning("back:c_cargo edit failed: %s", exc)
+        new_state = OrderForm.customs_cargo
 
     elif target == "c_country_reset":
         await state.update_data(country="")
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 1, "🌍 <b>Откуда отправляется товар?</b>"),
-            reply_markup=with_back(country_kb(), "back:c_cargo_reset"),
-        )
-        await state.set_state(OrderForm.customs_country)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 1, "🌍 <b>Откуда отправляется товар?</b>"),
+                reply_markup=with_back(country_kb(), "back:c_cargo_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:c_country edit failed: %s", exc)
+        new_state = OrderForm.customs_country
 
     elif target == "c_invoice_reset":
         await state.update_data(invoice_value="", invoice_value_num=0)
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 2, "💰 <b>Примерная стоимость партии?</b>"),
-            reply_markup=with_back(invoice_kb(), "back:c_country_reset"),
-        )
-        await state.set_state(OrderForm.invoice_value)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 2, "💰 <b>Примерная стоимость партии?</b>"),
+                reply_markup=with_back(invoice_kb(), "back:c_country_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:c_invoice edit failed: %s", exc)
+        new_state = OrderForm.invoice_value
 
     # ── DELIVERY back ────────────────────────────────────────
     elif target == "d_country_reset":
         await state.update_data(country="")
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 0, "🌍 <b>Страна отправления?</b>"),
-            reply_markup=with_back(country_kb(), "back:service"),
-        )
-        await state.set_state(OrderForm.country)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 0, "🌍 <b>Страна отправления?</b>"),
+                reply_markup=with_back(country_kb(), "back:service"),
+            )
+        except Exception as exc:
+            logger.warning("back:d_country edit failed: %s", exc)
+        new_state = OrderForm.country
 
     elif target == "d_city_reset":
         await state.update_data(city_from="")
         data = await state.get_data()
         country = data.get("country", "")
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 1, "📍 <b>Город отправления?</b>"),
-            reply_markup=with_back(city_kb(country), "back:d_country_reset"),
-        )
-        await state.set_state(OrderForm.city)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 1, "📍 <b>Город отправления?</b>"),
+                reply_markup=with_back(city_kb(country), "back:d_country_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:d_city edit failed: %s", exc)
+        new_state = OrderForm.city
 
     elif target == "d_cargo_reset":
         await state.update_data(cargo_type="")
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 2, "📦 <b>Тип груза?</b>"),
-            reply_markup=with_back(cargo_kb(), "back:d_city_reset"),
-        )
-        await state.set_state(OrderForm.cargo_type)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 2, "📦 <b>Тип груза?</b>"),
+                reply_markup=with_back(cargo_kb(), "back:d_city_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:d_cargo edit failed: %s", exc)
+        new_state = OrderForm.cargo_type
 
     elif target == "d_weight_reset":
         await state.update_data(weight_kg="")
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 3, "⚖️ <b>Примерный вес?</b>"),
-            reply_markup=with_back(weight_kb(), "back:d_cargo_reset"),
-        )
-        await state.set_state(OrderForm.weight)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 3, "⚖️ <b>Примерный вес?</b>"),
+                reply_markup=with_back(weight_kb(), "back:d_cargo_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:d_weight edit failed: %s", exc)
+        new_state = OrderForm.weight
 
     elif target == "d_volume_reset":
         await state.update_data(volume_m3="")
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 4, "📐 <b>Примерный объём?</b>"),
-            reply_markup=with_back(volume_kb(), "back:d_weight_reset"),
-        )
-        await state.set_state(OrderForm.volume)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 4, "📐 <b>Примерный объём?</b>"),
+                reply_markup=with_back(volume_kb(), "back:d_weight_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:d_volume edit failed: %s", exc)
+        new_state = OrderForm.volume
 
     elif target == "d_urgency_reset":
         await state.update_data(urgency="")
         data = await state.get_data()
-        await cb.message.edit_text(  # type: ignore[union-attr]
-            _card(data, 5, "⏰ <b>Насколько срочно?</b>"),
-            reply_markup=with_back(urgency_kb(), "back:d_volume_reset"),
-        )
-        await state.set_state(OrderForm.urgency)
+        try:
+            await cb.message.edit_text(  # type: ignore[union-attr]
+                _card(data, 5, "⏰ <b>Насколько срочно?</b>"),
+                reply_markup=with_back(urgency_kb(), "back:d_volume_reset"),
+            )
+        except Exception as exc:
+            logger.warning("back:d_urgency edit failed: %s", exc)
+        new_state = OrderForm.urgency
 
+    if new_state:
+        await state.set_state(new_state)
     await cb.answer()
 
 
@@ -982,8 +1072,14 @@ async def handle_back(cb: CallbackQuery, state: FSMContext) -> None:
 async def action_restart(cb: CallbackQuery, state: FSMContext) -> None:
     await cb.message.edit_reply_markup(reply_markup=None)  # type: ignore[union-attr]
     msg = await cb.message.answer(WELCOME_TEXT, reply_markup=service_kb())  # type: ignore[union-attr]
+    user = cb.from_user
     await state.clear()
-    await state.update_data(card_id=msg.message_id)
+    await state.update_data(
+        card_id=msg.message_id,
+        _uid=user.id if user else 0,
+        _uname=getattr(user, "username", "") or "",
+        _ufull=getattr(user, "full_name", "") or "",
+    )
     await state.set_state(OrderForm.service)
     await cb.answer()
 
